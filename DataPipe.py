@@ -24,7 +24,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 class Reader:
     def __init__(self):
-
+        pass
 
 
 class WordVec:
@@ -190,103 +190,70 @@ class WordVec:
                 break
         json.dump(clist,fjson)
 
-class DataPipe:
-    def __init__(self,SEG_BY_WORD = True):
-        self.SEG_BY_WORD = SEG_BY_WORD
+class DictFreqThreshhold:
+    def __init__(self):
         self.GRAM2N = {}
         self.N2GRAM = {}
+        self.N2WF = {}
         self.freq_threshold = 0
         self.read_dic()
         self.wordvec = None
         self.ULSW = ['\n', '\t',' ','\n']
-
     def read_dic(self):
         try:
-            if self.SEG_BY_WORD:
-                dic_file = open('_WORD_DIC.txt', 'r', encoding='utf-8')
-            else:
-                dic_file = open('_CHAR_DIC.txt', 'r', encoding='utf-8')
+            dic_file = open('DICT.txt', 'r', encoding='utf-8')
             for line in dic_file:
-                word = line.split(' ')[0]
-                index = int(line.split(' ')[1].strip())
-                self.GRAM2N[word] = index
-                self.N2GRAM[index] = word
+                wordInfo = line.split(' ')
+                if len(wordInfo)<1:
+                    continue
+
+                word = wordInfo[1]
+                wordIndex = int(wordInfo[0].strip())
+                wordFlag = wordInfo[2]
+                self.GRAM2N[word] = wordIndex
+                self.N2GRAM[wordIndex] = word
+                self.N2WF[wordIndex] = wordFlag
         except FileNotFoundError:
             print('[INFO] 未发现对应的*_DIC.txt文件，需要先初始化，初始化完毕之后重新运行程序即可')
-
-
-    def init_dic(self, source_file):
-        #   第一次建立字典的时候调用
-        dic_count = {}
-        try:
-            data_gen = self.read_file(source_file)
-            count = 0
-            for aj in data_gen:
-                if count%10 == 0:
-                    sys.stdout.write("\r[INFO] %d of aj has been read to mem.."%count)
-                if self.SEG_BY_WORD:
-                    grams = seg.cut(aj['fact'])
-                else:
-                    grams = aj['fact'].strip()
-                for gram in grams:
-                    if gram not in dic_count:
-                        dic_count[gram] = 0
-                    dic_count[gram] += 1
-                evids = aj['evid']
-                for e in evids:
-                    if self.SEG_BY_WORD:
-                        grams = seg.cut(e)
-                    else:
-                        grams = e.strip()
-                    for gram in grams:
-                        if gram not in dic_count:
-                            dic_count[gram] = 0
-                        dic_count[gram] += 1
-                count += 1
-            self.GRAM2N['<u>'] = 0
-            self.GRAM2N['<e>'] = 1
-            self.GRAM2N['<s>'] = 2
-            index = 3
-            print('\n[INFO] File read successfully, now drop word less than %d'%self.freq_threshold)
-            count_t = 0
-            for word in dic_count:
-                if count_t % 1000 == 0:
-                    sys.stdout.write("\r[INFO] %f finished .." % (float(count_t) / len(dic_count)))
-                if dic_count[word] >= self.freq_threshold:
-                    if word not in self.ULSW:
-                        self.GRAM2N[word] = index
-                    index += 1
-            print('\n[INFO] Dictionary built successfully')
-        except FileNotFoundError:
-            print("[ERROR] Source file \'%s\' not found" % (source_file))
-
-        if self.SEG_BY_WORD:
-            dic_file = open('_WORD_DIC.txt', 'w', encoding='utf-8')
+    def doc2bow(self,doc):
+        if isinstance(doc,list):
+            wordSet = doc
         else:
-            dic_file = open('_CHAR_DIC.txt', 'w', encoding='utf-8')
-        count = 0
-        for i in self.GRAM2N:
-            if count%1000 == 0:
-                sys.stdout.write("\r[INFO] %f of word has been written.."%(float(count)/index))
-            count+=1
-            dic_file.write('%s %d\n' % (i, self.GRAM2N[i]))
+            wordSet = doc.split(' ')
+        wordCount = {}
+        for w in wordSet:
+            if w in self.GRAM2N :
+                if w not in wordCount:
+                    wordCount[self.GRAM2N[w]] = 0
+                wordCount[self.GRAM2N[w]] += 1
 
-    def get_sentence(self, index_arr,cut_size = None):
+
+        res = sorted(wordCount.items(),key=lambda x:x[1])
+        return res
+
+    def get(self,id):
+        if id in self.N2GRAM:
+            return self.N2GRAM[id]
+        else:
+            return -1
+
+    def get_sentence(self, indexArr,cutSize = None):
 
         res = ''
-        for i in range(len(index_arr)):
-            if cut_size != None:
-                if index_arr[i] > 1:
-                    res+=(self.N2GRAM[index_arr[i]])
-                if len(res)>cut_size:
+        for i in range(len(indexArr)):
+            if cutSize != None:
+                if indexArr[i] > 1:
+                    res+=(self.N2GRAM[indexArr[i]])
+                if len(res)>cutSize:
                     break
             else:
-                if index_arr[i] != 1:
-                    res+=(self.N2GRAM[index_arr[i]])
+                if indexArr[i] != 1:
+                    res+=(self.N2GRAM[indexArr[i]])
                 else:
                     break
 
         return res
+
     def get_char_list(self, index_arr):
         res = []
         for i in range(len(index_arr)):
@@ -298,10 +265,7 @@ class DataPipe:
         return res
 
     def Nencoder(self, ec_str):
-        if self.SEG_BY_WORD:
-            grams = jieba.lcut(ec_str)
-        else:
-            grams = ec_str
+        grams = jieba.lcut(ec_str)
         ec_vecs = [2]
 
         for gram in grams:
@@ -333,6 +297,9 @@ class DataPipe:
             else:
                 res[C - i - 1] = title[pos - i - 1]
         return res
+class DataPipe:
+
+
 
     def data_provider(self,meta):
 

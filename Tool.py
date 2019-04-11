@@ -92,18 +92,16 @@ def XML2TXT_extract(root_dic,dis_file=None):
             count += 1
 
     dic_file = open('DICT.txt','w',encoding='utf-8')
-    pos_file = open('POS.txt','w',encoding='utf-8')
+    # pos_file = open('POS.txt','w',encoding='utf-8')
     count = 0
     for w in dic:
         if dic[w]>20:
-            dic_file.write("%d %s\n"%(count,w))
-            for wf in dic_pos[w]:
-                pos_file.write("%s %d,"%(wf,dic_pos[w][wf]))
-            pos_file.write('\n')
-        count+=1
+            word_type = max(dic_pos[w],key = lambda x:dic_pos[w][x])
+            dic_file.write("%d %s %s\n"%(count,w,word_type))
+            count+=1
 
     dic_file.close()
-    pos_file.close()
+    # pos_file.close()
 
     print("[INFO] 信息提取完毕，总共提取文书%d篇 句子长度统计如下"%count)
 
