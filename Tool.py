@@ -38,8 +38,7 @@ def XML2TXT_extract(root_dic,dis_file=None):
             try:
                 if (count+1) % 100 == 0:
                     print("[INFO] Now reading file : %d "%(count+1))
-                if count == 100:
-                    break
+
                 stree = ET.ElementTree(file = file)
                 qw = next(stree.iter('QW')).attrib['value']
                 sens = re.split(r"[,、，。；：\n]",qw)
