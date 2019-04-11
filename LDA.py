@@ -3,17 +3,15 @@ from gensim.models.callbacks import PerplexityMetric,Callback
 import sys
 import jieba
 import numpy as np
+import logging
+logging.basicConfig(level=logging.INFO)
 def lda_build(source):
     text = open(source,'r',encoding='utf-8')
     text_set = [line.split(' ') for line in text]
     dic = corpora.Dictionary(text_set)
     corpus = [dic.doc2bow(line) for line in text_set]
     dic.save('lda_dic')
-    class mycallback(Callback):
-        def __init__(self):
-            self.EPOCH = 0
-        def on_epoch_end(self, epoch, topics=None):
-    lda = models.LdaModel(corpus,num_topics=30)
+    lda = models.LdaModel(corpus,num_topics=30,passes=100)
     name = source.split('.')[0]
     lda.save(name+'_model')
 def read_lda(name):
@@ -27,7 +25,7 @@ def read_lda(name):
             res.append("%s,%f"%(word,w[1]))
         print(' '.join(res))
 
-lda_build('DOC.txt')
+lda_build('Doc.txt')
 read_lda('LDA_model')
 
 
