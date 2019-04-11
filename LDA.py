@@ -9,9 +9,11 @@ def lda_build(source):
     dic = corpora.Dictionary(text_set)
     corpus = [dic.doc2bow(line) for line in text_set]
     dic.save('lda_dic')
-
-    perplexity_logger = PerplexityMetric(corpus=corpus, logger='shell')
-    lda = models.LdaModel(corpus,num_topics=30,callbacks=[perplexity_logger])
+    class mycallback(Callback):
+        def __init__(self):
+            self.EPOCH = 0
+        def on_epoch_end(self, epoch, topics=None):
+    lda = models.LdaModel(corpus,num_topics=30)
     name = source.split('.')[0]
     lda.save(name+'_model')
 def read_lda(name):
