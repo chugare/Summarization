@@ -20,9 +20,7 @@ def XML2TXT_extract(root_dic,dis_file=None):
     data_file = open(dis_file,'w',encoding='utf-8')
     count = 0
     fl = [root_dic+'/'+f for f in fl]
-
     length_map = {}
-
     dic = {}
     dic_pos = {}
     for file in fl:
@@ -34,11 +32,9 @@ def XML2TXT_extract(root_dic,dis_file=None):
             except Exception:
                 pass
         else:
-
             try:
                 if (count+1) % 100 == 0:
                     print("[INFO] Now reading file : %d "%(count+1))
-
                 stree = ET.ElementTree(file = file)
                 qw = next(stree.iter('QW')).attrib['value']
                 sens = re.split(r"[,、，。；：\n]",qw)
@@ -54,9 +50,7 @@ def XML2TXT_extract(root_dic,dis_file=None):
                         sen = re.sub(p,'',sen)
                     if len(sen)<3:
                         continue
-
                     cutres = pseg.lcut(sen)
-
                     for w in cutres:
                         wc = w.word
                         wf = w.flag
@@ -67,29 +61,21 @@ def XML2TXT_extract(root_dic,dis_file=None):
                         if wf not in dic_pos[wc]:
                             dic_pos[wc][wf] = 0
                         dic_pos[wc][wf]  += 1
-
-
                     lc = len(cutres)
                     if lc not in length_map:
                         length_map[lc]=0
                     length_map[lc] += 1
-
                     cutres = list(zip(*cutres))
-
                     sen = ' '.join(list(cutres[0]))
                     res.append(sen)
-
                 data_file.write(' '.join(res))
                 data_file.write('\n')
-
             except StopIteration:
                 pass
             #
             # if count>10:
             #     break
-
             count += 1
-
     dic_file = open('DICT.txt','w',encoding='utf-8')
     # pos_file = open('POS.txt','w',encoding='utf-8')
     count = 0
@@ -98,21 +84,18 @@ def XML2TXT_extract(root_dic,dis_file=None):
             word_type = max(dic_pos[w],key = lambda x:dic_pos[w][x])
             dic_file.write("%d %s %s\n"%(count,w,word_type))
             count+=1
-
     dic_file.close()
     # pos_file.close()
-
     print("[INFO] 信息提取完毕，总共提取文书%d篇 句子长度统计如下"%count)
-
-
     # for kv in enumerate(length_map):
-
     ll = sorted(length_map.keys(),key = lambda x:x)
     for k in ll:
         print("k = %d : %d"%(k,length_map[k]))
-
-
     data_file.close()
+def TXT2TXT_extract(sourceFile):
+    sourceFile - open(sourceFile,'r',encoding='utf-8')
+
+
 
 if __name__ == '__main__':
     arg = sys.argv
