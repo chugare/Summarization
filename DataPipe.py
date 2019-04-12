@@ -191,17 +191,21 @@ class WordVec:
         json.dump(clist,fjson)
 
 class DictFreqThreshhold:
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.GRAM2N = {}
         self.N2GRAM = {}
         self.N2WF = {}
         self.freq_threshold = 0
-        self.read_dic()
         self.wordvec = None
         self.ULSW = ['\n', '\t',' ','\n']
+        self.dicName = 'DICT.txt'
+        for k in kwargs:
+            self.__setattr__(k,kwargs[k])
+
+        self.read_dic()
     def read_dic(self):
         try:
-            dic_file = open('DICT.txt', 'r', encoding='utf-8')
+            dic_file = open(self.dicName, 'r', encoding='utf-8')
             for line in dic_file:
                 wordInfo = line.split(' ')
                 if len(wordInfo)<1:
