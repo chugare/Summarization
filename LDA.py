@@ -35,6 +35,7 @@ class LDA_Train:
                 word = dic.get(w[0])
                 res.append("%s,%f"%(word,w[1]))
             print(' '.join(res))
+    def getLda
 
 if __name__ == '__main__':
     arg = sys.argv

@@ -35,7 +35,6 @@ class WordVec:
         self.num = 0
         print('[INFO] Start load word vector')
         self.read_vec()
-        self.seg = pkuseg.PKUSeg()
     def dump_file(self):
         file = open('word_vec.char','w',encoding='utf-8')
         file.write(str(self.num)+' 300\n')
@@ -195,6 +194,8 @@ class DictFreqThreshhold:
         self.GRAM2N = {}
         self.N2GRAM = {}
         self.N2WF = {}
+        self.WF2ID ={}
+        self.ID2WF = {}
         self.freq_threshold = 0
         self.wordvec = None
         self.ULSW = ['\n', '\t',' ','\n']
@@ -206,17 +207,21 @@ class DictFreqThreshhold:
     def read_dic(self):
         try:
             dic_file = open(self.dicName, 'r', encoding='utf-8')
+            wordFlagCount = 0
             for line in dic_file:
                 wordInfo = line.split(' ')
                 if len(wordInfo)<1:
                     continue
-
                 word = wordInfo[1]
                 wordIndex = int(wordInfo[0].strip())
                 wordFlag = wordInfo[2]
                 self.GRAM2N[word] = wordIndex
                 self.N2GRAM[wordIndex] = word
                 self.N2WF[wordIndex] = wordFlag
+                if wordFlag not in self.WF2ID:
+                    self.WF2ID[wordFlag] = wordFlagCount
+                    self.ID2WF[wordFlagCount] = wordFlag
+                    wordFlagCount += 1
         except FileNotFoundError:
             print('[INFO] 未发现对应的*_DIC.txt文件，需要先初始化，初始化完毕之后重新运行程序即可')
     def doc2bow(self,doc):
@@ -230,8 +235,6 @@ class DictFreqThreshhold:
                 if w not in wordCount:
                     wordCount[self.GRAM2N[w]] = 0
                 wordCount[self.GRAM2N[w]] += 1
-
-
         res = sorted(wordCount.items(),key=lambda x:x[1])
         return res
 
