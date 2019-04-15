@@ -17,6 +17,8 @@ class unionGenerator:
         self.BatchSize = 64
         self.L2NormValue = 0.02
         self.DropoutProb = 0.5
+        self.GlobalNorm = 0.5
+        self.LearningRate = 0.0001
         for k,v in kwargs.items():
             self.__setattr__(k,v)
         pass
@@ -112,12 +114,26 @@ class unionGenerator:
         wordOut = tf.matmul(encVector,WeightWord,name="Word_Out")
         wordOut = tf.nn.dropout(x=wordOut,keep_prob=self.DropoutProb)
 
+        train = tf.no_op()
         if(mode == 'train'):
             selRes = tf.nn.sigmoid_cross_entropy_with_logits(logits=selOut,labels=selLabel)
             topicRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=topicOut,labels=topicLabel)
             flagRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flagOut,labels=flagLabel)
             wordRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=wordOut,labels=wordLabel)
             selMap = tf.nn.softmax_cross_entropy_with_logits_v2(logits=selVector,labels=selWordLabel)
+
+            loss = selRes + (1-tf.sigmoid(selOut))*(topicRes+flagRes+wordRes) +tf.sigmoid(selOut)*(selMap)
+            loss = tf.reduce_mean(loss)
+            opt = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
+            grads = opt.compute_gradients(loss)
+            for grad,var in grads:
+                tf.summary.histogram(var+'_gradient',grad)
+
+            grad,var = zip(*grads)
+            tf.clip_by_global_norm(grad,self.GlobalNorm)
+            grads = zip(grad,var)
+            train = opt.apply_gradients(grads)
+
 
 t = unionGenerator()
 t.build_model()
