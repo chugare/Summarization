@@ -54,6 +54,11 @@ class unionGenerator:
         selWordLabel = tf.placeholder(tf.int32,
                                   shape=[self.BatchSize],
                                   name="WordSel_Label")
+
+        topicLabel = tf.one_hot(topicLabel,depth=self.TopicNum)
+        flagLabel = tf.one_hot(flagLabel,depth=self.FlagNum)
+        wordLabel = tf.one_hot(wordLabel,depth=self.WordNum)
+        selWordLabel = tf.one_hot(selWordLabel,depth=self.KeyWordNum)
         topicVecMap = self.get_variable("Topic_Vec_Map",shape=[self.TopicNum,self.TopicVec],dtype=tf.float32,
                                       initializer=tf.truncated_normal_initializer())
         flagVecMap = self.get_variable("Flag_Vec_Map",shape=[self.FlagNum,self.FlagVec],dtype=tf.float32,
@@ -70,29 +75,23 @@ class unionGenerator:
         encHiddenWeight = self.get_variable("Encoder_Hidden_0",shape=[rawVecSize,self.ContextVec],dtype=tf.float32,
                                           initializer=tf.truncated_normal_initializer())
 
-        print(topicVec)
-        print(flagVec)
         contextVector = tf.concat([wordVector,topicVec,flagVec],axis=-1,name="Context_Vec_raw")
-        print(contextVector)
         contextVector = tf.reshape(contextVector,[self.BatchSize,-1],name="Flat_context")
         contextVector = tf.matmul(contextVector,encHiddenWeight)
-        print(contextVector)
 
         contextVector = tf.nn.dropout(contextVector,keep_prob=self.DropoutProb)
         contextVector = tf.nn.relu(contextVector,name="Context_Vec")
 
-        a = tf.matmul(contextVector,encAtteWeight,transpose_b=True)
-        a = tf.expand_dims(a,-1)
-        # a = tf.tensordot(a,keyWordVector,axes=[2,2])
-        print(a)
-        print(keyWordVector)
+        def attention(q,k,w):
+            a = tf.matmul(q,w,transpose_b=True)
+            a = tf.expand_dims(a,-1)
+            align = tf.matmul(k,a)
+            align = tf.nn.softmax(align,axis=1)
+            return align,tf.reduce_mean(align * k,1)
 
-        align = tf.matmul(keyWordVector,a)
-        # align = tf.squeeze(align)
-        align = tf.nn.softmax(align,axis=1)
-        print(align)
-        alignKeyWord = tf.reduce_mean(align * keyWordVector,1)
-        print(alignKeyWord)
+        _,alignKeyWord = attention(contextVector,keyWordVector,encAtteWeight)
+        selVector,_ = attention(contextVector,keyWordVector,selAtteWeight)
+
         encVector = tf.concat([alignKeyWord,contextVector],axis=-1,name = "Encoder_Vector")
         WeightTopic = self.get_variable(name="Weight_Topic",shape=[self.VecSize+self.ContextVec,self.TopicNum],dtype=tf.float32,
                                         initializer=tf.truncated_normal_initializer())
@@ -105,13 +104,20 @@ class unionGenerator:
                                         initializer=tf.truncated_normal_initializer())
 
         topicOut = tf.matmul(encVector,WeightTopic,name="Topic_Out")
+        topicOut = tf.nn.dropout(x=topicOut,keep_prob=self.DropoutProb)
         selOut = tf.matmul(encVector, WeightSel, name="Sel_Out")
-
+        selOut = tf.nn.dropout(x=selOut,keep_prob=self.DropoutProb)
         flagOut = tf.matmul(encVector,WeightFlag,name="Flag_Out")
+        flagOut = tf.nn.dropout(x=flagOut,keep_prob=self.DropoutProb)
         wordOut = tf.matmul(encVector,WeightWord,name="Word_Out")
+        wordOut = tf.nn.dropout(x=wordOut,keep_prob=self.DropoutProb)
 
         if(mode == 'train'):
-            selRes = tf.nn.sigmoid_cross_entropy_with_logits()
+            selRes = tf.nn.sigmoid_cross_entropy_with_logits(logits=selOut,labels=selLabel)
+            topicRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=topicOut,labels=topicLabel)
+            flagRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flagOut,labels=flagLabel)
+            wordRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=wordOut,labels=wordLabel)
+            selMap = tf.nn.softmax_cross_entropy_with_logits_v2(logits=selVector,labels=selWordLabel)
 
 t = unionGenerator()
 t.build_model()
