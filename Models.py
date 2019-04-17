@@ -152,7 +152,7 @@ class unionGenerator:
             'flagSeq':flagSeq,
             'topicLabel':topicLabel,
             'flagLabel':flagLabel,
-            'wordLabel':wordLabel
+            'wordLabel':wordLabel,
             'selLabel':selLabel,
             'selWordLabel':selWordLabel,
             'train':train,

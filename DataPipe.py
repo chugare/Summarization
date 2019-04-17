@@ -17,10 +17,10 @@ import json
 import logging
 import sys
 import os
+import LDA
 import struct
 
 from sklearn.metrics.pairwise import cosine_similarity
-from gensim.models.ldamodel import LdaModel
 
 
 
@@ -36,10 +36,11 @@ class WordVec:
         self.vec_list = []
         self.num = 0
         self.ReadNum = -1
+        self.VecFile = 'word_vec.char'
         print('[INFO] Start load word vector')
-        self.read_vec()
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
+        self._read_vec()
     def dump_file(self):
         file = open('word_vec.char','w',encoding='utf-8')
         file.write(str(self.num)+' 300\n')
@@ -68,12 +69,12 @@ class WordVec:
                 ulwf.close()
                 return True
         return  False
-    @staticmethod
-    def clear_ulw(filename):
-        vec_file = open(filename,'r',encoding='utf-8')
+
+    def clear_ulw(self):
+        vec_file = open(self.VecFile,'r',encoding='utf-8')
         meg = next(vec_file).split(' ')
         num = int(meg[0])
-        file = open('word_vec.char', 'w', encoding='utf-8')
+        file = open(self.VecFile, 'w', encoding='utf-8')
 
         count = 0
 
@@ -89,13 +90,13 @@ class WordVec:
             file.write(l)
             # vec_dic[w] = vec
         print('\n Final count : %d'%count)
-    def read_vec(self):
+    def _read_vec(self):
         path = os.path.abspath('.')
         print(path)
         # path = '/'.join(path.split('\\')[:-1])+'/sgns.merge.char'
         # path = 'F:/python/word_vec/sgns.merge.char'
         # path = 'D:\\赵斯蒙\\EVI-fact\\word_vec.char'
-        path = 'word_vec.char'
+        path = self.VecFile
         vec_file = open(path,'r',encoding='utf-8')
         # meg = next(vec_file).split(' ')
         # num = int(meg[0])
@@ -161,43 +162,7 @@ class WordVec:
             return self.vec_dic[word]
         except KeyError:
             return np.zeros([len(self.vec_list[0])])
-    def case_to_vec(self,raw_file):
-        f = open(raw_file,'r',encoding='utf-8')
-        cases = json.load(f)
-        fmax = 0
-        fmin = 999
 
-        emax = 0
-        emin = 999
-        fjson = open('case_wordvec.json','w',encoding='utf-8')
-        clist = []
-        count = 0
-        for case in cases:
-            f = case['fact']
-            es = case['evid']
-            fv = self.sen2vec(f)
-            if len(fv)>fmax :
-                fmax = len(fv)
-            elif len(fv)<fmin:
-                fmin = len(fv)
-            evs = []
-            for e in es:
-                ev = self.sen2vec(e)
-                if len(ev) > emax:
-                    emax = len(ev)
-                elif len(fv) < emin:
-                    emin = len(ev)
-                evs.append(ev)
-            c = {'fact':fv,
-                 'evid':evs}
-            clist.append(c)
-            count+=1
-            if count%100 == 0:
-                print('[INFO] Case to json, %d cases finished'%count)
-
-            if count == 10:
-                break
-        json.dump(clist,fjson)
 
 class DictFreqThreshhold:
     def __init__(self, **kwargs):
@@ -271,7 +236,7 @@ class DictFreqThreshhold:
     def get_id_flag(self,word):
         if word in self.GRAM2N:
             id = self.GRAM2N[word]
-            return id,self.N2WF[id]
+            return id,self.WF2ID[self.N2WF[id]]
         else:
             return -1,-1
     def get_sentence(self, indexArr,cutSize = None):
@@ -339,9 +304,15 @@ class DataPipe:
     def __init__(self,**kwargs):
         self.Dict  = DictFreqThreshhold(dicName = "DP_Dict.txt",DictSize = 80000)
         self.SourceFile = 'DP.txt'
-        self.LDA = LdaModel.load('DP_model')
+
+        self.taskName = 'DP'
         self.Name = 'DP_gen'
         self.WordVectorMap = WordVec(ReadNum = 5000)
+        for k in kwargs:
+            self.__setattr__(k,kwargs[k])
+        lda = LDA.LDA_Train(taskName = 'DP',sourceFile = self.taskName+'.txt',dicName = self.taskName+'_DICT.txt')
+        self.LdaMap = lda.getLda()
+
     def pipe_data(self,**kwargs):
 
         try:
@@ -355,6 +326,7 @@ class DataPipe:
             return
         sourceFile = open(self.SourceFile,'r',encoding='utf-8')
         for line in sourceFile:
+            line  = line.strip()
             words = line.split(' ')
             preWord = [np.zeros([vecSize]) for _ in range(contentLen)]
             preTopic = [topicNum for _ in range(contentLen)]
@@ -377,7 +349,7 @@ class DataPipe:
                             topic = topicNum
                             flag = flagNum
                         else:
-                            ref_word[word] = np.random.rand(contentLen)
+                            ref_word[word] = np.random.rand(vecSize)
 
                         select = 1
                         selectWord = word
@@ -386,14 +358,16 @@ class DataPipe:
 
                         continue
                 else:
-                    topic = self.LDA.get_term_topics(currentWordId,minimum_probability=0.0)
-                    topic = max(topic)
+                    topic = self.LdaMap[currentWordId]
                     wordVec = self.WordVectorMap.get_vec(word)
 
                 lineBatch.append((preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord))
-                preWord = preWord[1:].append(wordVec)
-                preFlag = preFlag[1:].append(flag)
-                preTopic = preTopic[1:].append(topic)
+                preWord = preWord[1:]
+                preWord.append(wordVec)
+                preFlag = preFlag[1:]
+                preFlag.append(flag)
+                preTopic = preTopic[1:]
+                preTopic.append(topic)
 
             refMap = {}
             refVector = []
@@ -405,7 +379,7 @@ class DataPipe:
                 if select > 0:
                     selectWord = refMap[selectWord]
                 else:
-                    selectWord = 0
+                    selectWord = refSize
                 yield {
                     'wordVector':np.array(preWord,dtype=np.float32),
                     'topicSeq':np.array(preTopic,dtype=np.int64),
@@ -417,21 +391,24 @@ class DataPipe:
                     'selLabel':select,
                     'selWordLabel':selectWord,
                 }
-
-
         pass
 
     def write_TFRecord(self,meta):
         writer = tf.python_io.TFRecordWriter(self.Name+'.tfrecord')
         gen = self.pipe_data(**meta)
+        CountK = 0
+        KCount = 0
         for v in gen:
             example = self.get_feature(**v)
             writer.write(example.SerializeToString())
-
+            KCount += 1
+            if KCount %1000 == 0:
+                CountK += 1
+                KCount = 0
+                print("[INFO] %d K Samples read to record "%CountK)
         writer.close()
 
     def read_TFRecord(self):
-
         pass
     def get_feature(self,**kwargs):
         features = {}
@@ -457,9 +434,12 @@ class DataPipe:
 
 if __name__ == '__main__':
 
+    def getmeta(**kwargs):
+        return kwargs
 
-    dp = DataPipe()
-    dp.pipe_data(ContextLength=10,KeyWordNum=20,TopicNum=30,FlagNum=30,VecSize=300)
+    meta = getmeta(ContextLength=10,KeyWordNum=20,TopicNum=30,FlagNum=30,VecSize=300)
+    dp = DataPipe(taskName = 'DP')
+    dp.write_TFRecord(meta)
 
     # wv.dump_file()
     # WORD_VEC.clear_ulw('F:/python/word_vec/sgns.merge.char')

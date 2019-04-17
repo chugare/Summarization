@@ -93,7 +93,7 @@ def XML2TXT_extract(root_dic,dis_file=None):
     for k in ll:
         print("k = %d : %d"%(k,length_map[k]))
     data_file.close()
-def TXT2TXT_extract(sourceFile,taskName,dis_file = None):
+def TXT2TXT_extract(sourceFile,taskName,dis_file = None,testCase = -1):
     sourceFile = open(sourceFile,'r',encoding='utf-8')
     if dis_file == None:
         dis_file = taskName+".txt"
@@ -106,51 +106,54 @@ def TXT2TXT_extract(sourceFile,taskName,dis_file = None):
     dic_pos = {}
     for line in sourceFile:
         line = line.strip()
-        if len(line) != 0:
-            commentLine += line
-        else:
-            if len(commentLine)!=0:
-                try:
-                    countFile += 1
-                    if (countFile) % 100 == 0:
-                        print("[INFO] Now reading file : %d "%(countFile))
-                    commentLine = commentLine.replace('\n',' ')
-                    sens = re.split(r"[,、，。；：\n]",commentLine)
-                    patterns = [
-                        r"[（\(]+[一二三四五六七八九十\d]+[\)）]+[，、。．,\s]*",
-                        r"[⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇]",
-                        # r"[\s]",
-                        r"[a-zA-Z《》【】（）\s]+",
-                    ]
-                    res = []
-                    for sen in sens:
-                        for p in patterns:
-                            sen = re.sub(p,'',sen)
-                        if len(sen)<3:
-                            continue
-                        cutres = pseg.lcut(sen)
-                        for w in cutres:
-                            wc = w.word
-                            wf = w.flag
-                            if wc not in dic:
-                                dic[wc] = 0
-                                dic_pos[wc] = {}
-                            dic[wc] += 1
-                            if wf not in dic_pos[wc]:
-                                dic_pos[wc][wf] = 0
-                            dic_pos[wc][wf]  += 1
-                        lc = len(cutres)
-                        if lc not in length_map:
-                            length_map[lc]=0
-                        length_map[lc] += 1
-                        cutres = list(zip(*cutres))
-                        sen = ' '.join(list(cutres[0]))
-                        res.append(sen)
-                    data_file.write(' '.join(res))
-                    data_file.write('\n')
-                except StopIteration:
-                    pass
-            commentLine = ""
+        # if len(line) != 0:
+        #     commentLine += line
+        # else:
+        #     if len(commentLine)!=0:
+        #         try:
+        commentLine = line
+        countFile += 1
+        if (countFile) % 100 == 0:
+            print("[INFO] Now reading Line : %d "%(countFile))
+        if countFile == testCase:
+            break
+        commentLine = commentLine.replace('\n',' ')
+        sens = re.split(r"[,、，。；：\n]",commentLine)
+        patterns = [
+            r"[（\(]+[一二三四五六七八九十\d]+[\)）]+[，、。．,\s]*",
+            r"[⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇]",
+            # r"[\s]",
+            r"[a-zA-Z《》【】（）\s]+",
+        ]
+        res = []
+        for sen in sens:
+            for p in patterns:
+                sen = re.sub(p,'',sen)
+            if len(sen)<3:
+                continue
+            cutres = pseg.lcut(sen)
+            for w in cutres:
+                wc = w.word
+                wf = w.flag
+                if wc not in dic:
+                    dic[wc] = 0
+                    dic_pos[wc] = {}
+                dic[wc] += 1
+                if wf not in dic_pos[wc]:
+                    dic_pos[wc][wf] = 0
+                dic_pos[wc][wf]  += 1
+            lc = len(cutres)
+            if lc not in length_map:
+                length_map[lc]=0
+            length_map[lc] += 1
+            cutres = list(zip(*cutres))
+            sen = ' '.join(list(cutres[0]))
+            res.append(sen)
+        data_file.write(' '.join(res))
+        data_file.write('\n')
+            #     except StopIteration:
+            #         pass
+            # commentLine = ""
     dic_file = open(taskName+'_DICT.txt','w',encoding='utf-8')
     # pos_file = open('POS.txt','w',encoding='utf-8')
     count = 0

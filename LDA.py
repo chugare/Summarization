@@ -25,8 +25,6 @@ class LDA_Train:
         lda = models.LdaModel(corpus,num_topics=self.numTopic,passes=self.passes,per_word_topics=True)
         dicc = lda.id2word
         size = lda.num_terms
-        for i in range(size):
-            print(lda.get_term_topics(i,minimum_probability=0.0))
         # dicc = lda.per_word_topics
 
         lda.save(self.taskName+'_model')
@@ -42,12 +40,22 @@ class LDA_Train:
             print(' '.join(res))
     def getLda(self):
         lda = models.LdaModel.load(self.taskName+'_model')
-
-
-
+        assert isinstance(lda,models.LdaModel)
+        size = lda.num_terms
+        N2Topic = {}
+        for i in range(size):
+            topicVec = lda.get_term_topics(i, minimum_probability=0.0)
+            topicSel = self.numTopic
+            if len(topicVec)>0:
+                maxTopic = max(topicVec,key=lambda x:x[1])
+                topicSel = maxTopic[0]
+            N2Topic[i] = topicSel
+        return N2Topic
 if __name__ == '__main__':
     arg = sys.argv
     if arg[1] == '-b':
-        ldaInstance = LDA_Train(sourceFile = arg[2],taskName="DP",dicName = 'DP_DICT.txt')
+        ldaInstance = LDA_Train(sourceFile = arg[2]+'.txt',taskName=arg[2],dicName = arg[2]+'_DICT.txt')
         ldaInstance.lda_build()
-
+    elif arg[1] == '-t':
+        ldaInstance = LDA_Train(sourceFile=arg[2] + '.txt', taskName=arg[2], dicName=arg[2] + '_DICT.txt')
+        ldaInstance.getLda()
