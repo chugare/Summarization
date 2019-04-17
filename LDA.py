@@ -8,7 +8,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 class LDA_Train:
     def __init__(self,**kwargs):
-        self.passes = 100
+        self.passes = 1
         self.numTopic = 30
         self.sourceFile = ""
         self.taskName = "defaultLDA"
@@ -22,7 +22,12 @@ class LDA_Train:
         # ddic = corpora.Dictionary(text_set)
 
         corpus = [dic.doc2bow(line) for line in text_set]
-        lda = models.LdaModel(corpus,num_topics=self.numTopic,passes=self.passes)
+        lda = models.LdaModel(corpus,num_topics=self.numTopic,passes=self.passes,per_word_topics=True)
+        dicc = lda.id2word
+        size = lda.num_terms
+        for i in range(size):
+            print(lda.get_term_topics(i,minimum_probability=0.0))
+        # dicc = lda.per_word_topics
 
         lda.save(self.taskName+'_model')
     def read_lda(self):
@@ -35,7 +40,10 @@ class LDA_Train:
                 word = dic.get(w[0])
                 res.append("%s,%f"%(word,w[1]))
             print(' '.join(res))
-    def getLda
+    def getLda(self):
+        lda = models.LdaModel.load(self.taskName+'_model')
+
+
 
 if __name__ == '__main__':
     arg = sys.argv

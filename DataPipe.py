@@ -11,14 +11,16 @@
 #   4. 去除停用词
 import jieba
 import numpy as np
+import tensorflow as tf
 import re
 import json
-# import pkuseg
+import logging
 import sys
 import os
 import struct
-from sklearn.metrics.pairwise import cosine_similarity
 
+from sklearn.metrics.pairwise import cosine_similarity
+from gensim.models.ldamodel import LdaModel
 
 
 
@@ -28,13 +30,16 @@ class Reader:
 
 
 class WordVec:
-    def __init__(self):
+    def __init__(self,**kwargs):
         self.vec_dic = {}
         self.word_list = []
         self.vec_list = []
         self.num = 0
+        self.ReadNum = -1
         print('[INFO] Start load word vector')
         self.read_vec()
+        for k in kwargs:
+            self.__setattr__(k,kwargs[k])
     def dump_file(self):
         file = open('word_vec.char','w',encoding='utf-8')
         file.write(str(self.num)+' 300\n')
@@ -75,7 +80,7 @@ class WordVec:
         for l in vec_file:
             m = l.strip().split(' ')
             w = m[0]
-            if WORD_VEC.ulw(w):
+            if WordVec.ulw(w):
                 continue
             count+=1
             if count%10000 == 0:
@@ -107,7 +112,7 @@ class WordVec:
             count+=1
             if count%10000 == 0:
                 sys.stdout.write('\r[INFO] Load vec data, %d finished'%count)
-            if count == 500000:
+            if count == self.ReadNum:
                 break
             self.vec_list.append(vec)
             self.word_list.append(w)
@@ -145,12 +150,17 @@ class WordVec:
 
         return result
     def sen2vec(self,sen):
-        sen = self.seg.cut(sen)
+        sen = jieba.lcut(sen)
         vec_out = []
         for w in sen:
             if w in self.vec_dic:
                 vec_out.append(self.vec_dic[w])
         return vec_out
+    def get_vec(self,word):
+        try:
+            return self.vec_dic[word]
+        except KeyError:
+            return np.zeros([len(self.vec_list[0])])
     def case_to_vec(self,raw_file):
         f = open(raw_file,'r',encoding='utf-8')
         cases = json.load(f)
@@ -200,6 +210,7 @@ class DictFreqThreshhold:
         self.wordvec = None
         self.ULSW = ['\n', '\t',' ','\n']
         self.dicName = 'DICT.txt'
+        self.DictSize = None
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
 
@@ -208,11 +219,13 @@ class DictFreqThreshhold:
         try:
             dic_file = open(self.dicName, 'r', encoding='utf-8')
             wordFlagCount = 0
+            wordCount = 0
             for line in dic_file:
                 wordInfo = line.split(' ')
                 if len(wordInfo)<1:
                     continue
                 word = wordInfo[1]
+
                 wordIndex = int(wordInfo[0].strip())
                 wordFlag = wordInfo[2]
                 self.GRAM2N[word] = wordIndex
@@ -222,8 +235,13 @@ class DictFreqThreshhold:
                     self.WF2ID[wordFlag] = wordFlagCount
                     self.ID2WF[wordFlagCount] = wordFlag
                     wordFlagCount += 1
+                wordCount += 1
+                if(self.DictSize is not  None ) and wordCount >self.DictSize:
+                    break
         except FileNotFoundError:
             print('[INFO] 未发现对应的*_DIC.txt文件，需要先初始化，初始化完毕之后重新运行程序即可')
+            return
+        print('[INFO] 字典初始化完毕，共计单词%d个'%len(self.N2GRAM))
     def doc2bow(self,doc):
         if isinstance(doc,list):
             wordSet = doc
@@ -244,6 +262,18 @@ class DictFreqThreshhold:
         else:
             return -1
 
+    def get_id(self,word):
+        if word in self.GRAM2N:
+            return self.GRAM2N[word]
+        else:
+            return -1
+
+    def get_id_flag(self,word):
+        if word in self.GRAM2N:
+            id = self.GRAM2N[word]
+            return id,self.N2WF[id]
+        else:
+            return -1,-1
     def get_sentence(self, indexArr,cutSize = None):
 
         res = ''
@@ -306,51 +336,129 @@ class DictFreqThreshhold:
         return res
 class DataPipe:
 
+    def __init__(self,**kwargs):
+        self.Dict  = DictFreqThreshhold(dicName = "DP_Dict.txt",DictSize = 80000)
+        self.SourceFile = 'DP.txt'
+        self.LDA = LdaModel.load('DP_model')
+        self.WordVectorMap = WordVec(ReadNum = 5000)
+    def pipe_data(self,**kwargs):
+
+        try:
+            contentLen = kwargs['ContextLength']
+            vecSize = kwargs['VecSize']
+            refSize = kwargs['KeyWordNum']
+            topicNum = kwargs['TopicNum']
+            flagNum = kwargs['FlagNum']
+        except KeyError as e:
+            print(str(e))
+            return
+        sourceFile = open(self.SourceFile,'r',encoding='utf-8')
+        for line in sourceFile:
+            words = line.split(' ')
+            preWord = [np.zeros([vecSize]) for _ in range(contentLen)]
+            preTopic = [topicNum for _ in range(contentLen)]
+            preFlag = [flagNum for _ in range(contentLen)]
+            ref_word = {}
+            lineBatch = []
+            for word in words:
+                select = 0
+                selectWord = ""
+                topic = topicNum
+                currentWordId,flag = self.Dict.get_id_flag(word)
+                if  currentWordId <0:
+                    if word in ref_word:
+                        select = 1
+                        selectWord = word
+                        wordVec = ref_word[word]
+                    elif len(ref_word) < refSize :
+                        if word in self.WordVectorMap.vec_dic:
+                            ref_word[word] = self.WordVectorMap.get_vec(word)
+                            topic = topicNum
+                            flag = flagNum
+                        else:
+                            ref_word[word] = np.random.rand(contentLen)
+
+                        select = 1
+                        selectWord = word
+                        wordVec = ref_word[word]
+                    else:
+
+                        continue
+                else:
+                    topic = self.LDA.get_term_topics(currentWordId,minimum_probability=0.0)
+                    topic = max(topic)
+                    wordVec = self.WordVectorMap.get_vec(word)
+
+                lineBatch.append((preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord))
+                preWord = preWord[1:].append(wordVec)
+                preFlag = preFlag[1:].append(flag)
+                preTopic = preTopic[1:].append(topic)
+
+            refMap = {}
+            refVector = []
+            for i,k in enumerate(ref_word):
+                refMap[k] = i
+                refVector.append(ref_word[k])
+            for preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord in lineBatch:
+
+                if select > 0:
+                    selectWord = refMap[selectWord]
+                else:
+                    selectWord = 0
+                yield {
+                    'wordVector':preWord,
+                    'topicSeq':preTopic,
+                    'flagSeq':preFlag,
+                    'keyWordVector':refVector,
+                    'topicLabel':topic,
+                    'flagLabel':flag,
+                    'wordLabel':currentWordId,
+                    'selLabel':select,
+                    'selWordLabel':selectWord,
+                }
 
 
-    def data_provider(self,meta):
-
-        #   输入的数据是原始的文本形式，在这个函数中进行查找，oh化并按batch划分
-        #   由于是训练用的数据，所以会分批处理，输入的参数包括批次，context长度等信息
-        #   结果输入由一个batchsize的list组成，每一个单元包括原始的bow编码，输出文本的上下文信息，以及下一个输出文本标签
-        res_gen = self.read_file(meta['DATA_SOURCE'])
-        format_type = meta['NAME']
-        batch_size = meta['BATCH_SIZE']
-
-        # = meta['BATCH_SIZE']
-        #   从文本源中得到基本格式的数据，类型为
-        #     {
-        #         evids:['',''],
-        #         fact:'',
-        #     }
-        #   证据的文本分为多行
-        # 根据所用模型的不同，输出数据的格式要求也有所不同，格式分为下面几种
-        if str(format_type).count('LDA')>0:
+        pass
+    def to_tfexample(self,**kwargs):
+        feature = {
+            ''
+        }
+        for k in kwargs:
             pass
-        elif str(format_type).count('WT')>0:
-            pass
-        else:
-            print("[ERROR] Declaration of format type is required")
-def init():
-    print('[INFO] 初始化字典/词典')
-    p = DataPipe(True)
-    p.init_dic('RAW_DATA.json')
+    def write_TFRecord(self):
+        gen = self.pipe_data(ContextLength=10,KeyWordNum=20,TopicNum=30,FlagNum=30,VecSize=300)
+        for v in gen:
+
+        pass
+    def read_TFRecord(self):
+        pass
+    def get_feature(**kwargs):
+        features = {}
+        for k in kwargs:
+            var = kwargs[k]
+            if not np.isscalar(var):
+                var = np.reshape(var,[-1])
+            else:
+                var = np.array([var])
+            if var.dtype == np.float32 or var.dtype == np.float64:
+                features[k] = tf.train.Feature(float_list = tf.train.FloatList(value = var))
+            elif var.dtype == np.int32 or var.dtype == np.int64:
+                features[k] = tf.train.Feature(int64_list = tf.train.Int64List(value = var))
+            else:
+                features[k] = tf.train.Feature(bytes_list = tf.train.BytesList(value = var))
+        example = tf.train.Example(features=tf.train.Features(
+            feature=features
+        ))
+        return example
+
+
+
+
 if __name__ == '__main__':
 
 
-    jsfile = open('FORMAT_data.json','r',encoding='utf-8')
-    data = json.load(jsfile)
-    ellist = []
-    for d in data:
-        evid = d['evid']
-        c = 0
-        for e in evid:
-            c += len(e)
-        ellist.append(c)
-    ellist.sort()
-    all = len(ellist)
-    for i in range(10):
-        print(ellist[int(all*i/10)])
-    print(ellist[-1])
+    dp = DataPipe()
+    dp.pipe_data(ContextLength=10,KeyWordNum=20,TopicNum=30,FlagNum=30,VecSize=300)
+
     # wv.dump_file()
     # WORD_VEC.clear_ulw('F:/python/word_vec/sgns.merge.char')

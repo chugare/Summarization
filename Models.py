@@ -22,6 +22,8 @@ class unionGenerator:
         for k,v in kwargs.items():
             self.__setattr__(k,v)
         pass
+    def get_meta(self):
+        return self.__dict__
     def get_variable(self,name,shape,dtype,initializer):
         var = tf.get_variable(name,shape,dtype,initializer)
         l2_norm = tf.nn.l2_loss(var) * self.L2NormValue
@@ -50,7 +52,7 @@ class unionGenerator:
         wordLabel = tf.placeholder(tf.int32,
                                    shape=[self.BatchSize],
                                    name="Word_Label")
-        selLabel = tf.placeholder(tf.int32,
+        selLabel = tf.placeholder(tf.float32,
                                    shape=[self.BatchSize],
                                    name="Sel_Label")
         selWordLabel = tf.placeholder(tf.int32,
@@ -61,6 +63,7 @@ class unionGenerator:
         flagLabel = tf.one_hot(flagLabel,depth=self.FlagNum)
         wordLabel = tf.one_hot(wordLabel,depth=self.WordNum)
         selWordLabel = tf.one_hot(selWordLabel,depth=self.KeyWordNum)
+
         topicVecMap = self.get_variable("Topic_Vec_Map",shape=[self.TopicNum,self.TopicVec],dtype=tf.float32,
                                       initializer=tf.truncated_normal_initializer())
         flagVecMap = self.get_variable("Flag_Vec_Map",shape=[self.FlagNum,self.FlagVec],dtype=tf.float32,
@@ -93,21 +96,22 @@ class unionGenerator:
 
         _,alignKeyWord = attention(contextVector,keyWordVector,encAtteWeight)
         selVector,_ = attention(contextVector,keyWordVector,selAtteWeight)
-
+        selVector = tf.squeeze(selVector)
         encVector = tf.concat([alignKeyWord,contextVector],axis=-1,name = "Encoder_Vector")
         WeightTopic = self.get_variable(name="Weight_Topic",shape=[self.VecSize+self.ContextVec,self.TopicNum],dtype=tf.float32,
                                         initializer=tf.truncated_normal_initializer())
-        WeightSel = self.get_variable(name="Weight_Sel", shape=[self.VecSize + self.ContextVec],
+        WeightSel = self.get_variable(name="Weight_Sel", shape=[self.VecSize + self.ContextVec,1],
                                         dtype=tf.float32,
                                         initializer=tf.truncated_normal_initializer())
         WeightFlag = self.get_variable(name="Weight_Flag",shape=[self.VecSize+self.ContextVec,self.FlagNum],dtype=tf.float32,
                                         initializer=tf.truncated_normal_initializer())
-        WeightWord = self.get_variable(name="Weight_Word", shape=[self.VecSize + self.WordNum], dtype=tf.float32,
+        WeightWord = self.get_variable(name="Weight_Word", shape=[self.VecSize + self.ContextVec,self.WordNum], dtype=tf.float32,
                                         initializer=tf.truncated_normal_initializer())
 
         topicOut = tf.matmul(encVector,WeightTopic,name="Topic_Out")
         topicOut = tf.nn.dropout(x=topicOut,keep_prob=self.DropoutProb)
         selOut = tf.matmul(encVector, WeightSel, name="Sel_Out")
+        selOut = tf.reshape(selOut,shape=[self.BatchSize])
         selOut = tf.nn.dropout(x=selOut,keep_prob=self.DropoutProb)
         flagOut = tf.matmul(encVector,WeightFlag,name="Flag_Out")
         flagOut = tf.nn.dropout(x=flagOut,keep_prob=self.DropoutProb)
@@ -115,25 +119,47 @@ class unionGenerator:
         wordOut = tf.nn.dropout(x=wordOut,keep_prob=self.DropoutProb)
 
         train = tf.no_op()
-        if(mode == 'train'):
-            selRes = tf.nn.sigmoid_cross_entropy_with_logits(logits=selOut,labels=selLabel)
-            topicRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=topicOut,labels=topicLabel)
-            flagRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flagOut,labels=flagLabel)
-            wordRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=wordOut,labels=wordLabel)
-            selMap = tf.nn.softmax_cross_entropy_with_logits_v2(logits=selVector,labels=selWordLabel)
+        loss = tf.no_op()
 
+        print(selWordLabel)
+        print(selVector)
+        if(mode == 'train'):
+            selRes = tf.nn.sigmoid_cross_entropy_with_logits(logits=selOut,labels=selLabel,name="Select_Result")
+            topicRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=topicOut,labels=topicLabel,name="Topic_Result")
+            flagRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flagOut,labels=flagLabel,name="Flag_Result")
+            wordRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=wordOut,labels=wordLabel,name="Word_Result")
+            selMap = tf.nn.softmax_cross_entropy_with_logits_v2(logits=selVector,labels=selWordLabel,name="Select_Map_Result")
+
+            lossesTensor = [selRes,topicRes,flagRes,wordRes,selMap]
+            for l in lossesTensor:
+                tf.summary.scalar(name=l.name,tensor=l)
             loss = selRes + (1-tf.sigmoid(selOut))*(topicRes+flagRes+wordRes) +tf.sigmoid(selOut)*(selMap)
             loss = tf.reduce_mean(loss)
             opt = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
             grads = opt.compute_gradients(loss)
             for grad,var in grads:
-                tf.summary.histogram(var+'_gradient',grad)
+                tf.summary.histogram(var.name+'/gradient',grad)
 
             grad,var = zip(*grads)
             tf.clip_by_global_norm(grad,self.GlobalNorm)
             grads = zip(grad,var)
             train = opt.apply_gradients(grads)
-
-
+        merge = tf.summary.merge_all()
+        ops = {
+            'keyWordVector':keyWordVector,
+            'wordVector':wordVector,
+            'topicSeq':topicSeq,
+            'flagSeq':flagSeq,
+            'topicLabel':topicLabel,
+            'flagLabel':flagLabel,
+            'wordLabel':wordLabel
+            'selLabel':selLabel,
+            'selWordLabel':selWordLabel,
+            'train':train,
+            'loss':loss,
+            'merge':merge
+        }
+        return ops
 t = unionGenerator()
-t.build_model()
+t.build_model('train')
+print(t.get_meta())
