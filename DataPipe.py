@@ -340,6 +340,7 @@ class DataPipe:
         self.Dict  = DictFreqThreshhold(dicName = "DP_Dict.txt",DictSize = 80000)
         self.SourceFile = 'DP.txt'
         self.LDA = LdaModel.load('DP_model')
+        self.Name = 'DP_gen'
         self.WordVectorMap = WordVec(ReadNum = 5000)
     def pipe_data(self,**kwargs):
 
@@ -406,10 +407,10 @@ class DataPipe:
                 else:
                     selectWord = 0
                 yield {
-                    'wordVector':preWord,
-                    'topicSeq':preTopic,
-                    'flagSeq':preFlag,
-                    'keyWordVector':refVector,
+                    'wordVector':np.array(preWord,dtype=np.float32),
+                    'topicSeq':np.array(preTopic,dtype=np.int64),
+                    'flagSeq':np.array(preFlag,dtype=np.int64),
+                    'keyWordVector':np.array(refVector,dtype=np.float32),
                     'topicLabel':topic,
                     'flagLabel':flag,
                     'wordLabel':currentWordId,
@@ -419,20 +420,20 @@ class DataPipe:
 
 
         pass
-    def to_tfexample(self,**kwargs):
-        feature = {
-            ''
-        }
-        for k in kwargs:
-            pass
-    def write_TFRecord(self):
-        gen = self.pipe_data(ContextLength=10,KeyWordNum=20,TopicNum=30,FlagNum=30,VecSize=300)
+
+    def write_TFRecord(self,meta):
+        writer = tf.python_io.TFRecordWriter(self.Name+'.tfrecord')
+        gen = self.pipe_data(**meta)
         for v in gen:
+            example = self.get_feature(**v)
+            writer.write(example.SerializeToString())
+
+        writer.close()
+
+    def read_TFRecord(self):
 
         pass
-    def read_TFRecord(self):
-        pass
-    def get_feature(**kwargs):
+    def get_feature(self,**kwargs):
         features = {}
         for k in kwargs:
             var = kwargs[k]

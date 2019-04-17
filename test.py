@@ -63,5 +63,14 @@ def r():
         print(fr3)
         coord.request_stop()
         coord.join(threads)
+def kk(**kwargs):
+    return kwargs
 
-r()
+meta={
+    'k1':1,
+    'k2':2,
+    'k3':3
+}
+
+re = kk(**meta)
+print(re)
