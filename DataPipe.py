@@ -302,7 +302,7 @@ class DictFreqThreshhold:
 class DataPipe:
 
     def __init__(self,**kwargs):
-        self.Dict  = DictFreqThreshhold(dicName = "DP_Dict.txt",DictSize = 80000)
+        self.Dict  = DictFreqThreshhold(dicName = "DP_DICT.txt",DictSize = 80000)
         self.SourceFile = 'DP.txt'
         self.TaskName = 'DP'
         self.Name = 'DP_gen'
@@ -510,6 +510,6 @@ if __name__ == '__main__':
             coord.join(threads)
     args = sys.argv
     print(args)
-    dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]))
+    dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),dicName='DP_DICT.txt')
     meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
     dp.write_TFRecord(meta)
