@@ -17,7 +17,8 @@ def w():
     raw = np.reshape(raw,[-1])
     print(raw)
     example = get_feature(f1=raw,f2=scal,f3 = label)
-    writer.write(example.SerializeToString())
+    for i in range(1000):
+        writer.write(example.SerializeToString())
     writer.close()
 
 def get_feature(**kwargs):
@@ -49,8 +50,12 @@ def r():
         'f2':tf.FixedLenFeature([],tf.float32),
         'f3':tf.FixedLenFeature([],tf.int64),
     })
+    features =tf.train.shuffle_batch(features,batch_size=64,
+                                     capacity=20000,
+                                     num_threads=4,
+                                     min_after_dequeue=10000)
     f1 = features['f1']
-    f1 = tf.reshape(f1,[5,10])
+    f1 = tf.reshape(f1,[64,5,10])
     f2 = features['f2']
     f3 = features['f3']
     with tf.Session() as sess:
@@ -65,12 +70,4 @@ def r():
         coord.join(threads)
 def kk(**kwargs):
     return kwargs
-
-meta={
-    'k1':1,
-    'k2':2,
-    'k3':3
-}
-
-re = kk(**meta)
-print(re)
+r()

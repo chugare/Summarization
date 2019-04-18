@@ -305,12 +305,12 @@ class DataPipe:
         self.Dict  = DictFreqThreshhold(dicName = "DP_Dict.txt",DictSize = 80000)
         self.SourceFile = 'DP.txt'
 
-        self.taskName = 'DP'
+        self.TaskName = 'DP'
         self.Name = 'DP_gen'
         self.WordVectorMap = WordVec(ReadNum = 5000)
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
-        lda = LDA.LDA_Train(taskName = 'DP',sourceFile = self.taskName+'.txt',dicName = self.taskName+'_DICT.txt')
+        lda = LDA.LDA_Train(TaskName = self.TaskName,sourceFile = self.TaskName+'.txt',dicName = self.TaskName+'_DICT.txt')
         self.LdaMap = lda.getLda()
 
     def pipe_data(self,**kwargs):
@@ -321,6 +321,8 @@ class DataPipe:
             refSize = kwargs['KeyWordNum']
             topicNum = kwargs['TopicNum']
             flagNum = kwargs['FlagNum']
+            metaFile = open('meta_tfrecord.json','w',encoding='utf-8')
+            json.dump(kwargs,metaFile,ensure_ascii=False)
         except KeyError as e:
             print(str(e))
             return
@@ -339,6 +341,8 @@ class DataPipe:
                 topic = topicNum
                 currentWordId,flag = self.Dict.get_id_flag(word)
                 if  currentWordId <0:
+                    currentWordId = 0
+                    flag = 0
                     if word in ref_word:
                         select = 1
                         selectWord = word
@@ -374,6 +378,8 @@ class DataPipe:
             for i,k in enumerate(ref_word):
                 refMap[k] = i
                 refVector.append(ref_word[k])
+            for i in range(len(refVector),refSize):
+                refVector.append(np.zeros([vecSize]))
             for preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord in lineBatch:
 
                 if select > 0:
@@ -394,11 +400,14 @@ class DataPipe:
         pass
 
     def write_TFRecord(self,meta):
-        writer = tf.python_io.TFRecordWriter(self.Name+'.tfrecord')
+
         gen = self.pipe_data(**meta)
         CountK = 0
+        CountM = 0
         KCount = 0
+        writer = tf.python_io.TFRecordWriter(self.Name + '-%d.tfrecord'%CountM)
         for v in gen:
+
             example = self.get_feature(**v)
             writer.write(example.SerializeToString())
             KCount += 1
@@ -406,18 +415,63 @@ class DataPipe:
                 CountK += 1
                 KCount = 0
                 print("[INFO] %d K Samples read to record "%CountK)
-        writer.close()
 
-    def read_TFRecord(self):
-        pass
+                break
+
+                if CountK%1000 == 0:
+                    CountM+=1
+                    print("[INFO] %d M Samples has been read, Writing to record " % CountM)
+                    writer.close()
+                    writer = tf.python_io.TFRecordWriter(self.Name + '-%d.tfrecord'%CountM)
+
+    def read_TFRecord(self,BATCH_SIZE):
+
+        metaFile = open('meta_tfrecord.json','r',encoding='utf-8')
+        meta = json.load(metaFile)
+        try:
+            contentLen = meta['ContextLength']
+            vecSize = meta['VecSize']
+            refSize = meta['KeyWordNum']
+
+        except KeyError as e:
+            print(str(e))
+            return
+        files = os.listdir('.')
+        recordList = []
+        for f in files:
+            if f.endswith('.tfrecord'):
+                recordList.append(f)
+
+        fileQueue = tf.train.string_input_producer(recordList)
+        recordReader = tf.TFRecordReader()
+        i,serializeExample = recordReader.read(fileQueue)
+        features = tf.parse_single_example(serializeExample,features={
+            'wordVector': tf.FixedLenFeature(shape=[contentLen*vecSize],dtype=tf.float32),
+            'topicSeq': tf.FixedLenFeature(shape=[contentLen],dtype=tf.int64),
+            'flagSeq': tf.FixedLenFeature(shape=[contentLen],dtype=tf.int64),
+            'keyWordVector': tf.FixedLenFeature(shape=[refSize*vecSize],dtype=tf.float32),
+            'topicLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
+            'flagLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
+            'wordLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
+            'selLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
+            'selWordLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
+        })
+        # batchData = tf.data.Dataset().shuffle(buffer_size=20000).batch(BATCH_SIZE)
+        batchData = tf.train.shuffle_batch(features,batch_size=BATCH_SIZE,
+                                           capacity=20000,num_threads=4,
+                                           min_after_dequeue=10000)
+        return batchData
+
     def get_feature(self,**kwargs):
         features = {}
         for k in kwargs:
             var = kwargs[k]
             if not np.isscalar(var):
                 var = np.reshape(var,[-1])
+                print("%s %d"%(k,var.shape[0]))
             else:
                 var = np.array([var])
+                print(k)
             if var.dtype == np.float32 or var.dtype == np.float64:
                 features[k] = tf.train.Feature(float_list = tf.train.FloatList(value = var))
             elif var.dtype == np.int32 or var.dtype == np.int64:
@@ -427,6 +481,7 @@ class DataPipe:
         example = tf.train.Example(features=tf.train.Features(
             feature=features
         ))
+        print('')
         return example
 
 
@@ -437,9 +492,32 @@ if __name__ == '__main__':
     def getmeta(**kwargs):
         return kwargs
 
-    meta = getmeta(ContextLength=10,KeyWordNum=20,TopicNum=30,FlagNum=30,VecSize=300)
-    dp = DataPipe(taskName = 'DP')
-    dp.write_TFRecord(meta)
+    def unit_test():
+        dp = DataPipe(TaskName='DP')
+        input = dp.read_TFRecord(64)
+        keyWordVector = input['keyWordVector']
+        wordVector = input['wordVector']
+        topicSeq = input['topicSeq']
+        flagSeq = input['flagSeq']
+        topicLabel = input['topicLabel']
+        flagLabel = input['flagLabel']
+        wordLabel = input['wordLabel']
+        selWordLabel = input['selWordLabel']
+        selLabel = input['selLabel']
+        with tf.Session() as sess:
+            sess.run(tf.initialize_all_variables())
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-    # wv.dump_file()
-    # WORD_VEC.clear_ulw('F:/python/word_vec/sgns.merge.char')
+            fr1, fr2, fr3 = sess.run([topicLabel, selLabel, topicSeq])
+            print(fr1)
+            print(fr2)
+            print(fr3)
+            coord.request_stop()
+            coord.join(threads)
+    def write_test():
+        dp = DataPipe(TaskName = 'DP')
+        meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
+        dp.write_TFRecord(meta)
+    # write_test()
+    unit_test()

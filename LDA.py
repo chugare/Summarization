@@ -5,7 +5,7 @@ import jieba
 import numpy as np
 import DataPipe
 import logging
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 class LDA_Train:
     def __init__(self,**kwargs):
         self.passes = 1
@@ -29,7 +29,7 @@ class LDA_Train:
 
         lda.save(self.taskName+'_model')
     def read_lda(self):
-        lda = models.LdaModel.load(self.taskName+'_model')
+        lda = models.LdaModel.load(self.TaskName+'_model')
         dic = DataPipe.DictFreqThreshhold(dicName = self.dicName)
         for i in range(lda.num_topics):
             tl = lda.get_topic_terms(i)
@@ -39,7 +39,7 @@ class LDA_Train:
                 res.append("%s,%f"%(word,w[1]))
             print(' '.join(res))
     def getLda(self):
-        lda = models.LdaModel.load(self.taskName+'_model')
+        lda = models.LdaModel.load(self.TaskName+'_model')
         assert isinstance(lda,models.LdaModel)
         size = lda.num_terms
         N2Topic = {}
@@ -54,8 +54,8 @@ class LDA_Train:
 if __name__ == '__main__':
     arg = sys.argv
     if arg[1] == '-b':
-        ldaInstance = LDA_Train(sourceFile = arg[2]+'.txt',taskName=arg[2],dicName = arg[2]+'_DICT.txt')
+        ldaInstance = LDA_Train(sourceFile = arg[2]+'.txt',TaskName=arg[2],dicName = arg[2]+'_DICT.txt')
         ldaInstance.lda_build()
     elif arg[1] == '-t':
-        ldaInstance = LDA_Train(sourceFile=arg[2] + '.txt', taskName=arg[2], dicName=arg[2] + '_DICT.txt')
+        ldaInstance = LDA_Train(sourceFile=arg[2] + '.txt', TaskName=arg[2], dicName=arg[2] + '_DICT.txt')
         ldaInstance.getLda()

@@ -93,10 +93,10 @@ def XML2TXT_extract(root_dic,dis_file=None):
     for k in ll:
         print("k = %d : %d"%(k,length_map[k]))
     data_file.close()
-def TXT2TXT_extract(sourceFile,taskName,dis_file = None,testCase = -1):
+def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1):
     sourceFile = open(sourceFile,'r',encoding='utf-8')
     if dis_file == None:
-        dis_file = taskName+".txt"
+        dis_file = TaskName+".txt"
     data_file = open(dis_file,'w',encoding='utf-8')
 
     commentLine = ""
@@ -154,7 +154,7 @@ def TXT2TXT_extract(sourceFile,taskName,dis_file = None,testCase = -1):
             #     except StopIteration:
             #         pass
             # commentLine = ""
-    dic_file = open(taskName+'_DICT.txt','w',encoding='utf-8')
+    dic_file = open(TaskName+'_DICT.txt','w',encoding='utf-8')
     # pos_file = open('POS.txt','w',encoding='utf-8')
     count = 0
     for w in dic:
