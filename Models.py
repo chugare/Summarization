@@ -27,7 +27,7 @@ class unionGenerator:
     def get_variable(self,name,shape,dtype,initializer):
         var = tf.get_variable(name,shape,dtype,initializer)
         l2_norm = tf.nn.l2_loss(var) * self.L2NormValue
-        tf.add_to_collection('total loss',l2_norm)
+        tf.add_to_collection('l2norm',l2_norm)
         return var
     def build_model(self,mode):
 
@@ -247,13 +247,10 @@ class unionGenerator:
             selRes = tf.nn.sigmoid_cross_entropy_with_logits(logits=selOut,labels=selLabel)
             topicRes = (1-selLabel)*tf.nn.softmax_cross_entropy_with_logits_v2(logits=topicOut,labels=topicLabel)
             flagRes = (1-selLabel)*tf.nn.softmax_cross_entropy_with_logits_v2(logits=flagOut,labels=flagLabel)
-            print(wordOut)
             wordRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=wordOut,labels=wordLabel)
             selMap = selLabel*tf.nn.softmax_cross_entropy_with_logits_v2(logits=selVector,labels=selWordLabel)
-            tf.summary.histogram("wordRes",wordRes)
-            print(wordRes)
+
             selCount = tf.reduce_sum(selLabel)
-            tf.summary.scalar('selCount',selCount)
             selRes = tf.reduce_mean(selRes,name="Select_Result")
             topicRes = tf.identity(tf.reduce_sum(topicRes)/(self.BatchSize-selCount),name="Topic_Result")
             flagRes = tf.identity(tf.reduce_sum(flagRes)/(self.BatchSize-selCount),name="Flag_Result")
@@ -266,6 +263,8 @@ class unionGenerator:
                  tf.summary.scalar(name=l.name,tensor=tf.reduce_mean(l))
 
             loss = selMap+topicRes+flagRes+wordRes+selRes
+            omega = tf.add_n(tf.get_collection('l2norm'))
+            loss = loss + omega
             tf.summary.scalar('Loss',loss)
             opt = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
             grads = opt.compute_gradients(loss)

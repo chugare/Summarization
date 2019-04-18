@@ -70,4 +70,18 @@ def r():
         coord.join(threads)
 def kk(**kwargs):
     return kwargs
-r()
+# r()
+
+var1 = tf.truncated_normal(shape=[32,50],stddev=1000)
+var2 = tf.random_normal(shape=[32],mean=10,stddev=10)
+var2 = tf.abs(var2)
+var2 = tf.cast(var2,tf.int32)
+
+var2 = tf.one_hot(var2,depth=50)
+with tf.Session() as sess:
+    p = sess.run(var1)
+    print(p)
+
+    loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=var1,labels=var2)
+    p2 = sess.run(loss)
+    print(p2)

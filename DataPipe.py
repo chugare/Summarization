@@ -413,6 +413,7 @@ class DataPipe:
             if KCount %1000 == 0:
                 CountK += 1
                 KCount = 0
+
                 print("[INFO] %d K Samples read to record "%CountK)
                 if CountK%1000 == 0:
                     CountM+=1
