@@ -201,7 +201,7 @@ class DictFreqThreshhold:
                     self.ID2WF[wordFlagCount] = wordFlag
                     wordFlagCount += 1
                 wordCount += 1
-                if(self.DictSize is not  None ) and wordCount >self.DictSize:
+                if(self.DictSize is not  None ) and wordCount >=self.DictSize:
                     break
         except FileNotFoundError:
             print('[INFO] 未发现对应的*_DIC.txt文件，需要先初始化，初始化完毕之后重新运行程序即可')
@@ -304,12 +304,11 @@ class DataPipe:
     def __init__(self,**kwargs):
         self.Dict  = DictFreqThreshhold(dicName = "DP_Dict.txt",DictSize = 80000)
         self.SourceFile = 'DP.txt'
-
         self.TaskName = 'DP'
         self.Name = 'DP_gen'
-        self.WordVectorMap = WordVec(ReadNum = 5000)
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
+        self.WordVectorMap = WordVec(**kwargs)
         lda = LDA.LDA_Train(TaskName = self.TaskName,sourceFile = self.TaskName+'.txt',dicName = self.TaskName+'_DICT.txt')
         self.LdaMap = lda.getLda()
 
@@ -415,9 +414,6 @@ class DataPipe:
                 CountK += 1
                 KCount = 0
                 print("[INFO] %d K Samples read to record "%CountK)
-
-                break
-
                 if CountK%1000 == 0:
                     CountM+=1
                     print("[INFO] %d M Samples has been read, Writing to record " % CountM)
@@ -456,7 +452,6 @@ class DataPipe:
             'selLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
             'selWordLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
         })
-        # batchData = tf.data.Dataset().shuffle(buffer_size=20000).batch(BATCH_SIZE)
         batchData = tf.train.shuffle_batch(features,batch_size=BATCH_SIZE,
                                            capacity=20000,num_threads=4,
                                            min_after_dequeue=10000)
@@ -468,10 +463,9 @@ class DataPipe:
             var = kwargs[k]
             if not np.isscalar(var):
                 var = np.reshape(var,[-1])
-                print("%s %d"%(k,var.shape[0]))
             else:
                 var = np.array([var])
-                print(k)
+
             if var.dtype == np.float32 or var.dtype == np.float64:
                 features[k] = tf.train.Feature(float_list = tf.train.FloatList(value = var))
             elif var.dtype == np.int32 or var.dtype == np.int64:
@@ -481,7 +475,6 @@ class DataPipe:
         example = tf.train.Example(features=tf.train.Features(
             feature=features
         ))
-        print('')
         return example
 
 
@@ -493,7 +486,7 @@ if __name__ == '__main__':
         return kwargs
 
     def unit_test():
-        dp = DataPipe(TaskName='DP')
+        dp = DataPipe(TaskName='DP',ReadNum = 20000)
         input = dp.read_TFRecord(64)
         keyWordVector = input['keyWordVector']
         wordVector = input['wordVector']
@@ -515,9 +508,8 @@ if __name__ == '__main__':
             print(fr3)
             coord.request_stop()
             coord.join(threads)
-    def write_test():
-        dp = DataPipe(TaskName = 'DP')
-        meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
-        dp.write_TFRecord(meta)
-    # write_test()
-    unit_test()
+    args = sys.argv
+    print(args)
+    dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]))
+    meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
+    dp.write_TFRecord(meta)

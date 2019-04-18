@@ -6,6 +6,7 @@ import DataPipe,Models
 import tensorflow as tf
 def run_task(**kwargs):
     TaskName = kwargs['TaskName']
+    epochSize = kwargs['EpochSize']
     dataPipe = DataPipe.DataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
     inputPipe = dataPipe.read_TFRecord(model.BatchSize)
@@ -56,7 +57,7 @@ def run_task(**kwargs):
         for i in range(start_epoch, epoch):
             try:
                 batch_count = 0
-                while True:
+                for b in range(epochSize):
                     try:
                         last_time = time.time()
 
@@ -64,31 +65,26 @@ def run_task(**kwargs):
                         cur_time = time.time()
                         time_cost = cur_time - last_time
                         total_cost = cur_time - start_time
-                        if global_step % 10 == 0:
+                        if global_step % 1 == 0:
                             train_writer.add_summary(merge, global_step)
                             # logger.write_log([global_step/10,loss,total_cost])
-                        print('[INFO] Batch %d 训练结果：LOSS=%.2f  用时: %.2f 共计用时 %.2f' % (
+                            print('[INFO] Batch %d 训练结果：LOSS=%.2f  用时: %.2f 共计用时 %.2f' % (
                         batch_count, loss, time_cost, total_cost))
 
                         # print('[INFO] Batch %d'%batch_count)
                         # matplotlib 实现可视化loss
                         batch_count += 1
                         global_step += 1
-                    except StopIteration:
-                        print("[INFO] Epoch %d 结束，现在开始保存模型..." % i)
-                        saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(global_step)),
-                                   global_step=i)
-                        break
+
                     except Exception as e:
                         logging.exception(e)
                         print("[INFO] 因为程序错误停止训练，开始保存模型")
                         saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(global_step)),
                                    global_step=i)
-            except StopIteration:
+
                 print("[INFO] Epoch %d 结束，现在开始保存模型..." % i)
                 saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(global_step)),
                            global_step=i)
-
             except KeyboardInterrupt:
                 print("[INFO] 强行停止训练，开始保存模型")
                 saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(global_step)),
@@ -104,4 +100,9 @@ LDA_TRAIN={
 
 
 }
-run_task(TaskName='DP',Epoch=10,BatchSize=64)
+run_task(TaskName='DP',
+         Epoch=10,    # 训练的迭代次数
+         EpochSize=100000,# 每一个迭代当中的数据量
+         BatchSize=64,# 训练的批的大小
+         ReadNum = 20000 # 从词向量当中读取的单词的数量，-1表示全部读取，读取大量词向量需要消耗大量的时间
+         )

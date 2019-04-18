@@ -18,7 +18,7 @@ class unionGenerator:
         self.L2NormValue = 0.02
         self.DropoutProb = 0.5
         self.GlobalNorm = 0.5
-        self.LearningRate = 0.0001
+        self.LearningRate = 0.001
         for k,v in kwargs.items():
             self.__setattr__(k,v)
         pass
@@ -177,6 +177,7 @@ class unionGenerator:
         topicLabel = tf.one_hot(topicLabel,depth=self.TopicNum)
         flagLabel = tf.one_hot(flagLabel,depth=self.FlagNum)
         wordLabel = tf.one_hot(wordLabel,depth=self.WordNum)
+        # wordLabel  = tf.reshape(wordLabel,[-1])
         selWordLabel = tf.one_hot(selWordLabel,depth=self.KeyWordNum)
 
         topicVecMap = self.get_variable("Topic_Vec_Map",shape=[self.TopicNum,self.TopicVec],dtype=tf.float32,
@@ -228,14 +229,14 @@ class unionGenerator:
                                         initializer=tf.truncated_normal_initializer())
 
         topicOut = tf.matmul(encVector,WeightTopic,name="Topic_Out")
-        topicOut = tf.nn.dropout(x=topicOut,keep_prob=self.DropoutProb)
+        # topicOut = tf.nn.dropout(x=topicOut,keep_prob=self.DropoutProb)
         selOut = tf.matmul(encVector, WeightSel, name="Sel_Out")
         selOut = tf.reshape(selOut,shape=[self.BatchSize])
-        selOut = tf.nn.dropout(x=selOut,keep_prob=self.DropoutProb)
+        # selOut = tf.nn.dropout(x=selOut,keep_prob=self.DropoutProb)
         flagOut = tf.matmul(encVector,WeightFlag,name="Flag_Out")
-        flagOut = tf.nn.dropout(x=flagOut,keep_prob=self.DropoutProb)
+        # flagOut = tf.nn.dropout(x=flagOut,keep_prob=self.DropoutProb)
         wordOut = tf.matmul(encVector,WeightWord,name="Word_Out")
-        wordOut = tf.nn.dropout(x=wordOut,keep_prob=self.DropoutProb)
+        # wordOut = tf.nn.dropout(x=wordOut,keep_prob=self.DropoutProb)
 
         train = tf.no_op()
         loss = tf.no_op()
@@ -243,17 +244,28 @@ class unionGenerator:
         print(selWordLabel)
         print(selVector)
         if(mode == 'train'):
-            selRes = tf.nn.sigmoid_cross_entropy_with_logits(logits=selOut,labels=selLabel,name="Select_Result")
-            topicRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=topicOut,labels=topicLabel,name="Topic_Result")
-            flagRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flagOut,labels=flagLabel,name="Flag_Result")
-            wordRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=wordOut,labels=wordLabel,name="Word_Result")
-            selMap = tf.nn.softmax_cross_entropy_with_logits_v2(logits=selVector,labels=selWordLabel,name="Select_Map_Result")
+            selRes = tf.nn.sigmoid_cross_entropy_with_logits(logits=selOut,labels=selLabel)
+            topicRes = (1-selLabel)*tf.nn.softmax_cross_entropy_with_logits_v2(logits=topicOut,labels=topicLabel)
+            flagRes = (1-selLabel)*tf.nn.softmax_cross_entropy_with_logits_v2(logits=flagOut,labels=flagLabel)
+            print(wordOut)
+            wordRes = tf.nn.softmax_cross_entropy_with_logits_v2(logits=wordOut,labels=wordLabel)
+            selMap = selLabel*tf.nn.softmax_cross_entropy_with_logits_v2(logits=selVector,labels=selWordLabel)
+            tf.summary.histogram("wordRes",wordRes)
+            print(wordRes)
+            selCount = tf.reduce_sum(selLabel)
+            tf.summary.scalar('selCount',selCount)
+            selRes = tf.reduce_mean(selRes,name="Select_Result")
+            topicRes = tf.identity(tf.reduce_sum(topicRes)/(self.BatchSize-selCount),name="Topic_Result")
+            flagRes = tf.identity(tf.reduce_sum(flagRes)/(self.BatchSize-selCount),name="Flag_Result")
+            wordRes = tf.identity(tf.reduce_sum(wordRes)/(self.BatchSize-selCount),name="Word_Result")
+            selMap = tf.identity(tf.reduce_sum(selMap)/(selCount),name="Select_Map_Result")
+
 
             lossesTensor = [selRes,topicRes,flagRes,wordRes,selMap]
             for l in lossesTensor:
                  tf.summary.scalar(name=l.name,tensor=tf.reduce_mean(l))
-            loss = selRes + (1-tf.sigmoid(selOut))*(topicRes+flagRes+wordRes) +tf.sigmoid(selOut)*(selMap)
-            loss = tf.reduce_mean(loss)
+
+            loss = selMap+topicRes+flagRes+wordRes+selRes
             tf.summary.scalar('Loss',loss)
             opt = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
             grads = opt.compute_gradients(loss)
