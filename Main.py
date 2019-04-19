@@ -1,6 +1,6 @@
 import Tool
 import LDA
-import os,time,logging
+import os,time,logging,sys
 import DataPipe,Models
 
 import tensorflow as tf
@@ -100,9 +100,11 @@ LDA_TRAIN={
 
 
 }
-run_task(TaskName='DP',
-         Epoch=10,    # 训练的迭代次数
-         EpochSize=100000,# 每一个迭代当中的数据量
-         BatchSize=64,# 训练的批的大小
-         ReadNum = 20000 # 从词向量当中读取的单词的数量，-1表示全部读取，读取大量词向量需要消耗大量的时间
-         )
+if __name__ == '__main__':
+    args = sys.argv
+    run_task(TaskName='DP',
+             Epoch=10,    # 训练的迭代次数
+             EpochSize=100000,# 每一个迭代当中的数据量
+             BatchSize=64,# 训练的批的大小
+             ReadNum = args[1] # 从词向量当中读取的单词的数量，-1表示全部读取，读取大量词向量需要消耗大量的时间
+             )
