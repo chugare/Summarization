@@ -252,10 +252,10 @@ class unionGenerator:
 
             selCount = tf.reduce_sum(selLabel)
             selRes = tf.reduce_mean(selRes,name="Select_Result")
-            topicRes = tf.identity(tf.reduce_sum(topicRes)/(self.BatchSize-selCount),name="Topic_Result")
-            flagRes = tf.identity(tf.reduce_sum(flagRes)/(self.BatchSize-selCount),name="Flag_Result")
-            wordRes = tf.identity(tf.reduce_sum(wordRes)/(self.BatchSize-selCount),name="Word_Result")
-            selMap = tf.identity(tf.reduce_sum(selMap)/(selCount),name="Select_Map_Result")
+            topicRes = tf.identity(tf.reduce_sum(topicRes)/(self.BatchSize-selCount+1),name="Topic_Result")
+            flagRes = tf.identity(tf.reduce_sum(flagRes)/(self.BatchSize-selCount+1),name="Flag_Result")
+            wordRes = tf.identity(tf.reduce_sum(wordRes)/(self.BatchSize-selCount+1),name="Word_Result")
+            selMap = tf.identity(tf.reduce_sum(selMap)/(selCount+1),name="Select_Map_Result")
 
 
             lossesTensor = [selRes,topicRes,flagRes,wordRes,selMap]
