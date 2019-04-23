@@ -14,12 +14,13 @@ class unionGenerator:
         self.FlagVec = 10
         self.ContextVec = 400
         self.WordNum = 50000
-        self.BatchSize = 64
+        self.BatchSize = 128
         self.L2NormValue = 0.02
-        self.DropoutProb = 0.5
+        self.DropoutProb = 0.7
         self.GlobalNorm = 0.5
         self.LearningRate = 0.001
         self.HidderLayer = 3
+        self.LRDecayRate = 0.8
         for k,v in kwargs.items():
             self.__setattr__(k,v)
         pass
@@ -311,8 +312,9 @@ class unionGenerator:
             loss = loss + omega
             tf.summary.scalar('Loss',loss)
             global_step = tf.placeholder(dtype=tf.int32,shape=[],name='Global_Step')
-
-            opt = tf.train.GradientDescentOptimizer(learning_rate=0.00001)
+            lr_p = global_step/1000
+            lr_tmp = (self.LRDecayRate**lr_p)*self.LearningRate
+            opt = tf.train.GradientDescentOptimizer(learning_rate=lr_tmp)
             # opt = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
             grads = opt.compute_gradients(loss)
             for grad,var in grads:
@@ -323,6 +325,8 @@ class unionGenerator:
             grads = zip(grad,var)
 
             train = opt.apply_gradients(grads)
+            ops['GlobalStep'] = global_step
+            ops['LearningRate'] = lr_tmp
             ops['WordPrecision'] = wordPrec
             ops['TopicPrecision'] = topicPrec
             ops['FlagPrecision'] =  flagPrec

@@ -50,8 +50,9 @@ def run_train_task(**kwargs):
             print('[INFO] 从上一次的检查点:\t%s开始继续训练任务' % checkpoint)
             start_epoch += int(checkpoint.split('-')[-1])
             global_step += int(checkpoint.split('-')[-2])
+        else:
+            sess.run(initOp)
         start_time = time.time()
-        sess.run(initOp)
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess=sess,coord=coord)
         # 开始训练
@@ -63,15 +64,17 @@ def run_train_task(**kwargs):
                     try:
                         last_time = time.time()
 
-                        loss,_,merge = sess.run([ops['loss'],ops['train'],ops['merge']])
+                        loss,_,merge,lr = sess.run([ops['loss'],ops['train'],ops['merge'],ops['LearningRate']],feed_dict={
+                            ops['GlobalStep']:global_step
+                        })
                         cur_time = time.time()
                         time_cost = cur_time - last_time
                         total_cost = cur_time - start_time
                         if global_step % max(logInterval,1) == 0:
                             train_writer.add_summary(merge, global_step)
                             # logger.write_log([global_step/10,loss,total_cost])
-                        print('[INFO] Batch %d 训练结果：LOSS=%.2f  用时: %.2f 共计用时 %.2f' % (
-                        batch_count, loss, time_cost, total_cost))
+                        print('[INFO] Batch %d 训练结果：LOSS=%.2f  学习率：%.2f 用时: %.2f 共计用时 %.2f' % (
+                        batch_count, loss,lr,time_cost, total_cost))
 
                         # print('[INFO] Batch %d'%batch_count)
                         # matplotlib 实现可视化loss
