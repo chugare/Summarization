@@ -72,16 +72,20 @@ def kk(**kwargs):
     return kwargs
 # r()
 
-var1 = tf.truncated_normal(shape=[32,50],stddev=1000)
-var2 = tf.random_normal(shape=[32],mean=10,stddev=10)
-var2 = tf.abs(var2)
-var2 = tf.cast(var2,tf.int32)
+var1 = tf.placeholder(shape=[50],dtype=tf.float32)
+val = np.arange(50)
 
-var2 = tf.one_hot(var2,depth=50)
+l2 = tf.nn.l2_loss(var1)
+
+l22 = tf.reduce_sum(var1**2)
 with tf.Session() as sess:
-    p = sess.run(var1)
+    p = sess.run(l2,feed_dict={
+        var1:val
+    })
     print(p)
 
-    loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=var1,labels=var2)
-    p2 = sess.run(loss)
-    print(p2)
+    p = sess.run(l22,feed_dict={
+        var1:val
+    })
+    print(p)
+
