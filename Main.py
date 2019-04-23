@@ -92,8 +92,8 @@ def run_train_task(**kwargs):
                 saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(global_step)),
                            global_step=i)
                 break
-            coord.request_stop()
-            coord.join(threads)
+        coord.request_stop()
+        coord.join(threads)
 def run_eval_task(**kwargs):
     TaskName = kwargs['TaskName']
     evalCaseNum = kwargs['EvalCaseNum']

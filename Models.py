@@ -310,7 +310,10 @@ class unionGenerator:
             omega = tf.add_n(tf.get_collection('l2norm'))
             loss = loss + omega
             tf.summary.scalar('Loss',loss)
-            opt = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
+            global_step = tf.placeholder(dtype=tf.int32,shape=[],name='Global_Step')
+
+            opt = tf.train.GradientDescentOptimizer(learning_rate=0.00001)
+            # opt = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
             grads = opt.compute_gradients(loss)
             for grad,var in grads:
                 tf.summary.histogram(var.name+'/gradient',grad)
