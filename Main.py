@@ -7,6 +7,7 @@ import tensorflow as tf
 def run_train_task(**kwargs):
     TaskName = kwargs['TaskName']
     epochSize = kwargs['EpochSize']
+    logInterval = kwargs['LogInterval']
     dataPipe = DataPipe.DataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
     inputPipe = dataPipe.read_TFRecord(model.BatchSize)
@@ -65,7 +66,7 @@ def run_train_task(**kwargs):
                         cur_time = time.time()
                         time_cost = cur_time - last_time
                         total_cost = cur_time - start_time
-                        if global_step % 100 == 0:
+                        if global_step % max(logInterval,1) == 0:
                             train_writer.add_summary(merge, global_step)
                             # logger.write_log([global_step/10,loss,total_cost])
                             print('[INFO] Batch %d 训练结果：LOSS=%.2f  用时: %.2f 共计用时 %.2f' % (
@@ -181,5 +182,6 @@ if __name__ == '__main__':
              Epoch=10,    # 训练的迭代次数
              EpochSize=100000,# 每一个迭代当中的数据量
              BatchSize=64,# 训练的批的大小
-             ReadNum = int(args[1]) # 从词向量当中读取的单词的数量，-1表示全部读取，读取大量词向量需要消耗大量的时间
+             ReadNum = int(args[1]),# 从词向量当中读取的单词的数量，-1表示全部读取，读取大量词向量需要消耗大量的时间
+             LogInterval=1
              )
