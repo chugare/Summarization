@@ -180,16 +180,17 @@ class unionGenerator:
             wordVector = tf.reshape(wordVector,[self.BatchSize,self.ContextLen,self.VecSize],name='WordVector')
             topicSeq = input['topicSeq']
             flagSeq = input['flagSeq']
-            topicLabel = input['topicLabel']
-            flagLabel = input['flagLabel']
-            wordLabel = input['wordLabel']
-            selWordLabel = input['selWordLabel']
+            topicLabel_r = input['topicLabel']
+            flagLabel_r = input['flagLabel']
+            wordLabel_r = input['wordLabel']
+            selWordLabel_r = input['selWordLabel']
             selLabel = input['selLabel']
             selLabel = tf.cast(selLabel,tf.float32)
-            topicLabel = tf.one_hot(topicLabel,depth=self.TopicNum)
-            flagLabel = tf.one_hot(flagLabel,depth=self.FlagNum)
-            wordLabel = tf.one_hot(wordLabel,depth=self.WordNum)
-            selWordLabel = tf.one_hot(selWordLabel,depth=self.KeyWordNum)
+
+            topicLabel = tf.one_hot(topicLabel_r,depth=self.TopicNum)
+            flagLabel = tf.one_hot(flagLabel_r,depth=self.FlagNum)
+            wordLabel = tf.one_hot(wordLabel_r,depth=self.WordNum)
+            selWordLabel = tf.one_hot(selWordLabel_r,depth=self.KeyWordNum)
 
         else:
             keyWordVector = tf.placeholder(tf.float32,
@@ -290,6 +291,16 @@ class unionGenerator:
             wordRes = tf.identity(tf.reduce_sum(wordRes)/(self.BatchSize-selCount+1),name="Word_Result")
             selMap = tf.identity(tf.reduce_sum(selMap)/(selCount+1),name="Select_Map_Result")
 
+            wordGen = tf.argmax(wordOut,axis=-1)
+            topicGen = tf.argmax(topicOut,axis=-1)
+            flagGen = tf.argmax(flagOut,axis=-1)
+            wordPrec = tf.reduce_sum(tf.cast(tf.equal(wordGen,wordLabel_r),tf.float32))/(self.BatchSize-selCount+1)
+            topicPrec = tf.reduce_sum(tf.cast(tf.equal(topicGen,topicLabel_r),tf.float32))/(self.BatchSize-selCount+1)
+            flagPrec = tf.reduce_sum(tf.cast(tf.equal(flagGen,flagLabel_r),tf.float32))/(self.BatchSize-selCount+1)
+
+            tf.summary.scalar('WordPrecision',wordPrec)
+            tf.summary.scalar('TopicPrecision',topicPrec)
+            tf.summary.scalar('FlagPrecision',flagPrec)
 
             lossesTensor = [selRes,topicRes,flagRes,wordRes,selMap]
             for l in lossesTensor:
@@ -309,6 +320,9 @@ class unionGenerator:
             grads = zip(grad,var)
 
             train = opt.apply_gradients(grads)
+            ops['WordPrecision'] = wordPrec
+            ops['TopicPrecision'] = topicPrec
+            ops['FlagPrecision'] =  flagPrec
         else:
             selRes = tf.argmax(selOut,-1)
             topicRes = tf.nn.softmax(topicOut)

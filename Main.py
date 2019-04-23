@@ -55,6 +55,7 @@ def run_train_task(**kwargs):
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess=sess,coord=coord)
         # 开始训练
+
         for i in range(start_epoch, epoch):
             try:
                 batch_count = 0
@@ -69,7 +70,7 @@ def run_train_task(**kwargs):
                         if global_step % max(logInterval,1) == 0:
                             train_writer.add_summary(merge, global_step)
                             # logger.write_log([global_step/10,loss,total_cost])
-                            print('[INFO] Batch %d 训练结果：LOSS=%.2f  用时: %.2f 共计用时 %.2f' % (
+                        print('[INFO] Batch %d 训练结果：LOSS=%.2f  用时: %.2f 共计用时 %.2f' % (
                         batch_count, loss, time_cost, total_cost))
 
                         # print('[INFO] Batch %d'%batch_count)
