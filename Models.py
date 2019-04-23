@@ -38,7 +38,7 @@ class unionGenerator:
         Bias = tf.get_variable(name=name+'_bias',shape=[unit])
         Out = tf.matmul(input,Weight)+Bias
         Out = tf.nn.dropout(Out,self.DropoutProb)
-        Out = tf.nn.relu(Out)
+        Out = tf.nn.tanh(Out)
         return Out
     # def build_model(self,mode):
    #
