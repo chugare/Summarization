@@ -10,15 +10,15 @@ class LDA_Train:
     def __init__(self,**kwargs):
         self.passes = 1
         self.numTopic = 30
-        self.sourceFile = ""
-        self.taskName = "defaultLDA"
-        self.dicName = "DICT.txt"
+        self.SourceFile = ""
+        self.TaskName = "defaultLDA"
+        self.DictName = "DICT.txt"
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
     def lda_build(self):
-        text = open(self.sourceFile,'r',encoding='utf-8')
+        text = open(self.SourceFile,'r',encoding='utf-8')
         text_set = [line.split(' ') for line in text]
-        dic = DataPipe.DictFreqThreshhold(dicName = self.dicName)
+        dic = DataPipe.DictFreqThreshhold(DictName = self.DictName)
         # ddic = corpora.Dictionary(text_set)
 
         corpus = [dic.doc2bow(line) for line in text_set]
@@ -27,10 +27,10 @@ class LDA_Train:
         size = lda.num_terms
         # dicc = lda.per_word_topics
 
-        lda.save(self.taskName+'_model')
+        lda.save(self.TaskName+'_model')
     def read_lda(self):
         lda = models.LdaModel.load(self.TaskName+'_model')
-        dic = DataPipe.DictFreqThreshhold(dicName = self.dicName)
+        dic = DataPipe.DictFreqThreshhold(DictName = self.DictName)
         for i in range(lda.num_topics):
             tl = lda.get_topic_terms(i)
             res = []
@@ -54,8 +54,8 @@ class LDA_Train:
 if __name__ == '__main__':
     arg = sys.argv
     if arg[1] == '-b':
-        ldaInstance = LDA_Train(sourceFile = arg[2]+'.txt',TaskName=arg[2],dicName = arg[2]+'_DICT.txt')
+        ldaInstance = LDA_Train(SourceFile = arg[2]+'.txt',TaskName=arg[2],DictName = arg[2]+'_DICT.txt')
         ldaInstance.lda_build()
     elif arg[1] == '-t':
-        ldaInstance = LDA_Train(sourceFile=arg[2] + '.txt', TaskName=arg[2], dicName=arg[2] + '_DICT.txt')
+        ldaInstance = LDA_Train(SourceFile=arg[2] + '.txt', TaskName=arg[2], DictName=arg[2] + '_DICT.txt')
         ldaInstance.getLda()

@@ -162,23 +162,38 @@ class unionGenerator:
         return ops
     def build_model_pipe(self,mode,input):
         # assert isinstance(input,tf.train.Features)
-        keyWordVector = input['keyWordVector']
-        keyWordVector = tf.reshape(keyWordVector,[self.BatchSize,self.KeyWordNum,self.VecSize],name='KeyWordVector')
-        wordVector = input['wordVector']
-        wordVector = tf.reshape(wordVector,[self.BatchSize,self.ContextLen,self.VecSize],name='WordVector')
-        topicSeq = input['topicSeq']
-        flagSeq = input['flagSeq']
-        topicLabel = input['topicLabel']
-        flagLabel = input['flagLabel']
-        wordLabel = input['wordLabel']
-        selWordLabel = input['selWordLabel']
-        selLabel = input['selLabel']
-        selLabel = tf.cast(selLabel,tf.float32)
-        topicLabel = tf.one_hot(topicLabel,depth=self.TopicNum)
-        flagLabel = tf.one_hot(flagLabel,depth=self.FlagNum)
-        wordLabel = tf.one_hot(wordLabel,depth=self.WordNum)
-        # wordLabel  = tf.reshape(wordLabel,[-1])
-        selWordLabel = tf.one_hot(selWordLabel,depth=self.KeyWordNum)
+        if mode == 'train':
+            keyWordVector = input['keyWordVector']
+            keyWordVector = tf.reshape(keyWordVector,[self.BatchSize,self.KeyWordNum,self.VecSize],name='KeyWordVector')
+            wordVector = input['wordVector']
+            wordVector = tf.reshape(wordVector,[self.BatchSize,self.ContextLen,self.VecSize],name='WordVector')
+            topicSeq = input['topicSeq']
+            flagSeq = input['flagSeq']
+            topicLabel = input['topicLabel']
+            flagLabel = input['flagLabel']
+            wordLabel = input['wordLabel']
+            selWordLabel = input['selWordLabel']
+            selLabel = input['selLabel']
+            selLabel = tf.cast(selLabel,tf.float32)
+            topicLabel = tf.one_hot(topicLabel,depth=self.TopicNum)
+            flagLabel = tf.one_hot(flagLabel,depth=self.FlagNum)
+            wordLabel = tf.one_hot(wordLabel,depth=self.WordNum)
+            selWordLabel = tf.one_hot(selWordLabel,depth=self.KeyWordNum)
+
+        else:
+            keyWordVector = tf.placeholder(tf.float32,
+                                           shape=[1,self.KeyWordNum,self.VecSize],
+                                           name="Key_Word_Vector")
+            wordVector = tf.placeholder(tf.float32,
+                                        shape=[1,self.ContextLen,self.VecSize],
+                                        name="Context_Vector")
+            topicSeq = tf.placeholder(tf.int32,
+                                      shape=[1,self.ContextLen],
+                                      name="Topic_Sequence")
+            flagSeq = tf.placeholder(tf.int32,
+                                     shape=[1,self.ContextLen],
+                                     name="Flag_Sequence")
+
 
         topicVecMap = self.get_variable("Topic_Vec_Map",shape=[self.TopicNum,self.TopicVec],dtype=tf.float32,
                                       initializer=tf.truncated_normal_initializer())
@@ -241,8 +256,7 @@ class unionGenerator:
         train = tf.no_op()
         loss = tf.no_op()
 
-        print(selWordLabel)
-        print(selVector)
+        ops = {}
         if(mode == 'train'):
             selRes = tf.nn.sigmoid_cross_entropy_with_logits(logits=selOut,labels=selLabel)
             topicRes = (1-selLabel)*tf.nn.softmax_cross_entropy_with_logits_v2(logits=topicOut,labels=topicLabel)
@@ -275,10 +289,26 @@ class unionGenerator:
             tf.clip_by_global_norm(grad,self.GlobalNorm)
             grads = zip(grad,var)
             train = opt.apply_gradients(grads)
+        else:
+            selRes = tf.argmax(selOut,-1)
+            topicRes = tf.nn.softmax(topicOut)
+            flagRes = tf.nn.softmax(flagOut)
+            wordRes = tf.nn.softmax(wordOut)
+            selMap = tf.argmax(selVector)
+            ops['keyWordVector'] = keyWordVector
+            ops['wordVector'] = wordVector
+            ops['topicSeq'] = topicSeq
+            ops['flagSeq'] = flagSeq
+
+            ops['wordRes'] = wordRes
+            ops['topicRes'] = topicRes
+            ops['flagRes'] = flagRes
+            ops['selRes'] = selRes
+            ops['selMap'] = selMap
+
         merge = tf.summary.merge_all()
-        ops = {
-            'train':train,
-            'loss':loss,
-            'merge':merge
-        }
+        ops['train'] = train
+        ops['merge'] = merge
+        ops['loss'] = loss
+
         return ops
