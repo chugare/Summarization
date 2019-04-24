@@ -9,11 +9,11 @@ class unionGenerator:
         self.ContextLen = 10
         self.HiddenUnit = 200
         self.TopicNum = 30
-        self.FlagNum = 30
+        self.FlagNum = 60
         self.TopicVec = 10
-        self.FlagVec = 10
+        self.FlagVec = 20
         self.ContextVec = 400
-        self.WordNum = 50000
+        self.WordNum = 80000
         self.BatchSize = 128
         self.L2NormValue = 0.02
         self.DropoutProb = 0.7

@@ -596,8 +596,13 @@ if __name__ == '__main__':
             print(fr3)
             coord.request_stop()
             coord.join(threads)
+    def t1():
+        dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
+        meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
+        dp.write_TFRecord(meta)
+
+
     args = sys.argv
     print(args)
-    dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
-    meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
-    dp.write_TFRecord(meta)
+    dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
+    print(len(dp.Dict.WF2ID))
