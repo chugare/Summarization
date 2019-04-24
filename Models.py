@@ -314,8 +314,8 @@ class unionGenerator:
             global_step = tf.placeholder(dtype=tf.int32,shape=[],name='Global_Step')
             lr_p = global_step/1000
             lr_tmp = (self.LRDecayRate**lr_p)*self.LearningRate
-            opt = tf.train.GradientDescentOptimizer(learning_rate=lr_tmp)
-            # opt = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
+            # opt = tf.train.GradientDescentOptimizer(learning_rate=lr_tmp)
+            opt = tf.train.AdamOptimizer(learning_rate=lr_tmp)
             grads = opt.compute_gradients(loss)
             for grad,var in grads:
                 tf.summary.histogram(var.name+'/gradient',grad)
