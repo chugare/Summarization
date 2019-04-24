@@ -7,7 +7,9 @@ class unionGenerator:
         self.KeyWordNum = 20
         self.VecSize = 300
         self.ContextLen = 10
-        self.HiddenUnit = 200
+        self.HiddenUnit = 400
+        self.KernelSize = 5
+        self.KernelNum = 200
         self.TopicNum = 30
         self.FlagNum = 60
         self.TopicVec = 10
@@ -16,7 +18,7 @@ class unionGenerator:
         self.WordNum = 80000
         self.BatchSize = 128
         self.L2NormValue = 0.02
-        self.DropoutProb = 0.7
+        self.DropoutProb = 1.0
         self.GlobalNorm = 0.5
         self.LearningRate = 0.001
         self.HidderLayer = 3
@@ -217,10 +219,14 @@ class unionGenerator:
 
         topicVec = tf.nn.embedding_lookup(topicVecMap,topicSeq)
         flagVec = tf.nn.embedding_lookup(flagVecMap,flagSeq)
+        encAtteWeight = self.get_variable("Encoder_Attention", shape=[self.VecSize, self.ContextVec], dtype=tf.float32)
+        selAtteWeight = self.get_variable("Select_Attention", shape=[self.VecSize, self.ContextVec], dtype=tf.float32)
+
         rawVecSize = self.VecSize + self.TopicVec+self.FlagVec
+
         rawVecSize *= self.ContextLen
-        encAtteWeight = self.get_variable("Encoder_Attention",shape=[self.VecSize,self.ContextVec],dtype=tf.float32)
-        selAtteWeight = self.get_variable("Select_Attention",shape=[self.VecSize,self.ContextVec],dtype=tf.float32)
+
+        tf.layers.Conv1D(filters=self.KeyWordNum,kernel_size=)
         encHiddenWeight = self.get_variable("Encoder_Hidden_0",shape=[rawVecSize,self.ContextVec],dtype=tf.float32)
 
         contextVector = tf.concat([wordVector,topicVec,flagVec],axis=-1,name="Context_Vec_raw")
@@ -312,7 +318,7 @@ class unionGenerator:
             loss = loss + omega
             tf.summary.scalar('Loss',loss)
             global_step = tf.placeholder(dtype=tf.int32,shape=[],name='Global_Step')
-            lr_p = global_step/1000
+            lr_p = global_step/200
             lr_tmp = (self.LRDecayRate**lr_p)*self.LearningRate
             # opt = tf.train.GradientDescentOptimizer(learning_rate=lr_tmp)
             opt = tf.train.AdamOptimizer(learning_rate=lr_tmp)
