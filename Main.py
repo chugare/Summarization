@@ -73,7 +73,7 @@ def run_train_task(**kwargs):
                         if global_step % max(logInterval,1) == 0:
                             train_writer.add_summary(merge, global_step)
                             # logger.write_log([global_step/10,loss,total_cost])
-                        print('[INFO] Batch %d 训练结果：LOSS=%.2f  学习率：%e用时: %.2f 共计用时 %.2f' % (
+                        print('[INFO] Batch %d 训练结果：LOSS=%.2f  学习率：%.2e用时: %.2f 共计用时 %.2f' % (
                         batch_count, loss,lr,time_cost, total_cost))
 
                         # print('[INFO] Batch %d'%batch_count)

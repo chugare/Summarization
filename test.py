@@ -74,17 +74,18 @@ def kk(**kwargs):
 
 var1 = tf.placeholder(shape=[50],dtype=tf.float32)
 val = np.arange(50)
-
+vart = tf.reshape(var1,[5,2,5])
+vall = tf.expand_dims(vart,1)
 l2 = tf.nn.l2_loss(var1)
 
 l22 = tf.reduce_sum(var1**2)
 with tf.Session() as sess:
-    p = sess.run(l2,feed_dict={
+    p = sess.run(vart,feed_dict={
         var1:val
     })
     print(p)
 
-    p = sess.run(l22,feed_dict={
+    p = sess.run(vall,feed_dict={
         var1:val
     })
     print(p)

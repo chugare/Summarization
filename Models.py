@@ -9,7 +9,7 @@ class unionGenerator:
         self.ContextLen = 10
         self.HiddenUnit = 400
         self.KernelSize = 5
-        self.KernelNum = 200
+        self.KernelNum = 400
         self.TopicNum = 30
         self.FlagNum = 60
         self.TopicVec = 10
@@ -35,6 +35,20 @@ class unionGenerator:
         l2_norm = tf.reduce_mean(var**2) * self.L2NormValue
         tf.add_to_collection('l2norm',l2_norm)
         return var
+    def get_cnn_layer(self,input_vector,name,kernelNum):
+        with tf.name_scope(name):
+            inShape = input_vector.shape
+            kernelFilter = self.get_variable(name='Kernel_%s'%name, shape=[self.KernelSize, inShape[-2], 1, kernelNum],
+                                             dtype=tf.float32)
+
+            conv = tf.nn.conv2d(input_vector, kernelFilter,name='Convolution_%s'%name, strides=[1, 1, 1, 1], padding="VALID")
+
+            pool = tf.nn.max_pool(conv, ksize=[1,conv.shape[1], 1, 1],name='Pool_%s'%name,strides=[1, 1, 1, 1],
+                                      padding='VALID')
+            pool = tf.squeeze(pool,[1,2])
+            res = tf.nn.l2_normalize(pool, axis=-1)
+        return res
+
     def get_layer(self,name,unit,input):
         v= input.shape[-1]
         Weight = self.get_variable(name=name,shape=[v, unit], dtype=tf.float32)
@@ -223,17 +237,28 @@ class unionGenerator:
         selAtteWeight = self.get_variable("Select_Attention", shape=[self.VecSize, self.ContextVec], dtype=tf.float32)
 
         rawVecSize = self.VecSize + self.TopicVec+self.FlagVec
-
         rawVecSize *= self.ContextLen
 
-        tf.layers.Conv1D(filters=self.KeyWordNum,kernel_size=)
-        encHiddenWeight = self.get_variable("Encoder_Hidden_0",shape=[rawVecSize,self.ContextVec],dtype=tf.float32)
+        # 卷积神经网络进行编码的部分
+        wordVector = tf.expand_dims(wordVector, -1)
+        topicVec = tf.expand_dims(topicVec,-1)
+        flagVec = tf.expand_dims(flagVec,-1)
 
-        contextVector = tf.concat([wordVector,topicVec,flagVec],axis=-1,name="Context_Vec_raw")
-        contextVector = tf.reshape(contextVector,[self.BatchSize,-1],name="Flat_context")
-        contextVector = tf.matmul(contextVector,encHiddenWeight)
+        wordCNN = self.get_cnn_layer(wordVector,name='WordCNN',kernelNum=self.KernelNum)
+        topicCNN = self.get_cnn_layer(topicVec,name='TopicCNN',kernelNum=self.KernelNum/2)
+        flagCNN = self.get_cnn_layer(flagVec,name="FlagCNN",kernelNum=self.KernelNum/2)
+        #
 
-        # contextVector = tf.nn.dropout(contextVector,keep_prob=self.DropoutProb)
+        encHiddenWeight = self.get_variable("Encoder_Hidden_0",shape=[self.KernelNum,self.ContextVec],dtype=tf.float32)
+        # wordContext = tf.matmul()
+        #
+        # contextVector = tf.concat([wordVector,topicVec,flagVec],axis=-1,name="Context_Vec_raw")
+        contextVector = wordCNN
+
+        # contextVector = tf.reshape(contextVector,[self.BatchSize,-1],name="Flat_context")
+        # contextVector = tf.matmul(contextVector,encHiddenWeight)
+        #
+        # # contextVector = tf.nn.dropout(contextVector,keep_prob=self.DropoutProb)
         # contextVector = tf.nn.tanh(contextVector,name="Context_Vec")
 
         def attention(q,k,w):
@@ -247,11 +272,11 @@ class unionGenerator:
         selVector,_ = attention(contextVector,keyWordVector,selAtteWeight)
         selVector = tf.squeeze(selVector)
         encVector = tf.concat([alignKeyWord,contextVector],axis=-1,name = "Encoder_Vector")
-        encVector = tf.nn.l2_normalize(encVector,axis=-1)
+        # encVector = tf.nn.l2_normalize(encVector,axis=-1)
 
-        topicH = encVector
+        topicH = topicCNN
         selH = encVector
-        flagH = encVector
+        flagH = flagCNN
         wordH = encVector
 
         for i in range(self.HidderLayer):
