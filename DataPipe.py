@@ -444,7 +444,7 @@ class DataPipe:
                 KCount = 0
 
                 print("[INFO] %d K Samples read to record "%CountK)
-                if CountK%10 == 0:
+                if CountK%1000 == 0:
                     CountM+=1
                     print("[INFO] %d M Samples has been read, Writing to record " % CountM)
                     writer.close()
