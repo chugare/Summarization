@@ -11,6 +11,7 @@
 #   4. 去除停用词
 import jieba
 import numpy as np
+import random
 import tensorflow as tf
 import re
 import json
@@ -313,6 +314,7 @@ class DataPipe:
         self.WordVectorMap = WordVec(**kwargs)
         lda = LDA.LDA_Train(TaskName = self.TaskName,SourceFile = self.SourceFile,DictName = self.DictName)
         self.LdaMap = lda.getLda()
+        self.DictSize = min(len(self.Dict.N2WF),self.DictSize)
 
     def pipe_data(self,**kwargs):
 
@@ -324,6 +326,7 @@ class DataPipe:
             flagNum = kwargs['FlagNum']
             metaFile = open('meta_tfrecord.json','w',encoding='utf-8')
             json.dump(kwargs,metaFile,ensure_ascii=False)
+            metaFile.close()
         except KeyError as e:
             print(str(e))
             return
@@ -341,32 +344,56 @@ class DataPipe:
                 selectWord = ""
                 topic = topicNum
                 currentWordId,flag = self.Dict.get_id_flag(word)
-                if  currentWordId <0:
-                    currentWordId = 0
-                    flag = 0
-                    if word in ref_word:
-                        select = 1
-                        selectWord = word
-                        wordVec = ref_word[word]
-                    elif len(ref_word) < refSize :
-                        if word in self.WordVectorMap.vec_dic:
-                            ref_word[word] = self.WordVectorMap.get_vec(word)
-                            topic = topicNum
-                            flag = flagNum
-                        else:
-                            ref_word[word] = np.random.rand(vecSize)
+                if currentWordId <0:
 
-                        select = 1
-                        selectWord = word
-                        wordVec = ref_word[word]
-                    else:
+                    # 生成单词不从自定义单词表中选择的情况
 
-                        continue
+
+                    currentWordId = random.randint(0,self.DictSize)
+                    topic = self.LdaMap[currentWordId]
+                    flag = self.Dict.WF2ID[self.Dict.N2WF[currentWordId]]
+                    wordVec = self.WordVectorMap.get_vec(word)
+
+                    # 生成单词自定义一个单词表并且从中进行选择的情况
+
+                    # currentWordId = 0
+                    # flag = 0
+                    # if word in ref_word:
+                    #     select = 1
+                    #     selectWord = word
+                    #     wordVec = ref_word[word]
+                    # elif len(ref_word) < refSize :
+                    #     if word in self.WordVectorMap.vec_dic:
+                    #         ref_word[word] = self.WordVectorMap.get_vec(word)
+                    #         topic = topicNum
+                    #         flag = flagNum
+                    #     else:
+                    #         ref_word[word] = np.zeros([vecSize])
+                    #
+                    #     select = 1
+                    #     selectWord = word
+                    #     wordVec = ref_word[word]
+                    # else:
+                    #
+                    #     continue
                 else:
                     topic = self.LdaMap[currentWordId]
                     wordVec = self.WordVectorMap.get_vec(word)
 
-                lineBatch.append((preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord))
+                # lineBatch.append((preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord))
+                yield {
+                    'wordVector': np.array(preWord, dtype=np.float32),
+                    'topicSeq': np.array(preTopic, dtype=np.int64),
+                    'flagSeq': np.array(preFlag, dtype=np.int64),
+                    # 'keyWordVector': np.array(refVector, dtype=np.float32),
+                    'topicLabel': topic,
+                    'flagLabel': flag,
+                    'wordLabel': currentWordId,
+                    # 'selLabel': select,
+                    # 'selWordLabel': selectWord,
+                }
+
+
                 preWord = preWord[1:]
                 preWord.append(wordVec)
                 preFlag = preFlag[1:]
@@ -374,31 +401,31 @@ class DataPipe:
                 preTopic = preTopic[1:]
                 preTopic.append(topic)
 
-            refMap = {}
-            refVector = []
-            for i,k in enumerate(ref_word):
-                refMap[k] = i
-                refVector.append(ref_word[k])
-            for i in range(len(refVector),refSize):
-                refVector.append(np.zeros([vecSize]))
-            for preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord in lineBatch:
-
-                if select > 0:
-                    selectWord = refMap[selectWord]
-                else:
-                    selectWord = refSize
-                yield {
-                    'wordVector':np.array(preWord,dtype=np.float32),
-                    'topicSeq':np.array(preTopic,dtype=np.int64),
-                    'flagSeq':np.array(preFlag,dtype=np.int64),
-                    'keyWordVector':np.array(refVector,dtype=np.float32),
-                    'topicLabel':topic,
-                    'flagLabel':flag,
-                    'wordLabel':currentWordId,
-                    'selLabel':select,
-                    'selWordLabel':selectWord,
-                }
-        pass
+        #     refMap = {}
+        #     refVector = []
+        #     for i,k in enumerate(ref_word):
+        #         refMap[k] = i
+        #         refVector.append(ref_word[k])
+        #     for i in range(len(refVector),refSize):
+        #         refVector.append(np.zeros([vecSize]))
+        #     for preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord in lineBatch:
+        #
+        #         if select > 0:
+        #             selectWord = refMap[selectWord]
+        #         else:
+        #             selectWord = refSize
+        #         yield {
+        #             'wordVector':np.array(preWord,dtype=np.float32),
+        #             'topicSeq':np.array(preTopic,dtype=np.int64),
+        #             'flagSeq':np.array(preFlag,dtype=np.int64),
+        #             'keyWordVector':np.array(refVector,dtype=np.float32),
+        #             'topicLabel':topic,
+        #             'flagLabel':flag,
+        #             'wordLabel':currentWordId,
+        #             'selLabel':select,
+        #             'selWordLabel':selectWord,
+        #         }
+        # pass
 
     def write_TFRecord(self,meta):
 
@@ -417,7 +444,7 @@ class DataPipe:
                 KCount = 0
 
                 print("[INFO] %d K Samples read to record "%CountK)
-                if CountK%1000 == 0:
+                if CountK%10 == 0:
                     CountM+=1
                     print("[INFO] %d M Samples has been read, Writing to record " % CountM)
                     writer.close()
@@ -448,12 +475,12 @@ class DataPipe:
             'wordVector': tf.FixedLenFeature(shape=[contentLen*vecSize],dtype=tf.float32),
             'topicSeq': tf.FixedLenFeature(shape=[contentLen],dtype=tf.int64),
             'flagSeq': tf.FixedLenFeature(shape=[contentLen],dtype=tf.int64),
-            'keyWordVector': tf.FixedLenFeature(shape=[refSize*vecSize],dtype=tf.float32),
+            # 'keyWordVector': tf.FixedLenFeature(shape=[refSize*vecSize],dtype=tf.float32),
             'topicLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
             'flagLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
             'wordLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
-            'selLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
-            'selWordLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
+            # 'selLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
+            # 'selWordLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
         })
         batchData = tf.train.shuffle_batch(features,batch_size=BATCH_SIZE,
                                            capacity=20000,num_threads=4,
@@ -576,21 +603,21 @@ if __name__ == '__main__':
     def unit_test():
         dp = DataPipe(TaskName='DP',ReadNum = 20000)
         input = dp.read_TFRecord(64)
-        keyWordVector = input['keyWordVector']
+        # keyWordVector = input['keyWordVector']
         wordVector = input['wordVector']
         topicSeq = input['topicSeq']
         flagSeq = input['flagSeq']
         topicLabel = input['topicLabel']
         flagLabel = input['flagLabel']
         wordLabel = input['wordLabel']
-        selWordLabel = input['selWordLabel']
-        selLabel = input['selLabel']
+        # selWordLabel = input['selWordLabel']
+        # selLabel = input['selLabel']
         with tf.Session() as sess:
             sess.run(tf.initialize_all_variables())
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-            fr1, fr2, fr3 = sess.run([topicLabel, selLabel, topicSeq])
+            fr1, fr2, fr3 = sess.run([topicLabel,flagLabel, topicSeq])
             print(fr1)
             print(fr2)
             print(fr3)
@@ -598,11 +625,11 @@ if __name__ == '__main__':
             coord.join(threads)
     def t1():
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
-        meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
-        dp.write_TFRecord(meta)
 
 
+    # unit_test()
     args = sys.argv
     print(args)
     dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
-    print(len(dp.Dict.WF2ID))
+    meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
+    dp.write_TFRecord(meta)
