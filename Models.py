@@ -41,7 +41,9 @@ class unionGenerator:
             kernelFilter = self.get_variable(name='Kernel_%s'%name, shape=[self.KernelSize, inShape[-2], 1, kernelNum],
                                              dtype=tf.float32)
 
-            conv = tf.nn.conv2d(input_vector, kernelFilter,name='Convolution_%s'%name, strides=[1, 1, 1, 1], padding="VALID")
+            conv = tf.nn.conv2d(input_vector, kernelFilter,name='Convolution_%s'%name, strides=[1, 1, 1, 1],
+                                padding="VALID",
+                                use_cudnn_on_gpu=False)
 
             pool = tf.nn.max_pool(conv, ksize=[1,conv.shape[1], 1, 1],name='Pool_%s'%name,strides=[1, 1, 1, 1],
                                       padding='VALID')
