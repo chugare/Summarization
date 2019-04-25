@@ -43,7 +43,7 @@ class unionGenerator:
 
             conv = tf.nn.conv2d(input_vector, kernelFilter,name='Convolution_%s'%name, strides=[1, 1, 1, 1],
                                 padding="VALID",
-                                use_cudnn_on_gpu=False)
+                                use_cudnn_on_gpu=True)
 
             pool = tf.nn.max_pool(conv, ksize=[1,conv.shape[1], 1, 1],name='Pool_%s'%name,strides=[1, 1, 1, 1],
                                       padding='VALID')
