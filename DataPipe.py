@@ -482,6 +482,7 @@ class DataPipe:
             # 'selLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
             # 'selWordLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
         })
+        # batchData = tf.train.batch(features,batch_size=BATCH_SIZE,num_threads=4,capacity=1000)
         batchData = tf.train.shuffle_batch(features,batch_size=BATCH_SIZE,
                                            capacity=20000,num_threads=4,
                                            min_after_dequeue=10000)
@@ -517,15 +518,69 @@ class EvalProvider:
         self.VecSize = 300
         self.RefSize = 20
         self.TopicNum = 30
-        self.FlagNum = 30
+        self.FlagNum = 60
         self.ContextLen = 20
 
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
         self.Dict  = DictFreqThreshhold(DictName = self.DictName,DictSize = self.DictSize)
+        self.DictSize = self.Dict.DictSize
         self.WordVectorMap = WordVec(**kwargs)
         lda = LDA.LDA_Train(TaskName = self.TaskName,SourceFile = self.SourceFile,DictName = self.DictName)
         self.LdaMap = lda.getLda()
+        self.get_word_mat()
+
+    def get_word_mat(self):
+        wordNum = self.Dict.DictSize
+        flagNum = len(self.Dict.WF2ID)
+        topicNum = self.TopicNum
+        self.TopicWordMat = []
+        self.FlagWordMat = []
+        for i in range(wordNum):
+            ttmp = np.zeros(flagNum)
+            ttmp[self.Dict.WF2ID[self.Dict.N2WF[i]]] = 1
+            ftmp = np.zeros(topicNum)
+            ftmp[self.LdaMap[[i]]] = 1
+            self.TopicWordMat.append(ftmp)
+            self.FlagWordMat.append(ttmp)
+        self.FlagWordMat =np.array(self.FlagWordMat)
+        self.TopicWordMat = np.array(self.TopicWordMat)
+    def _get_prob(self,PW,PF,PT):
+        PW_T = np.matmul(self.TopicWordMat,PT)
+        PW_F = np.matmul(self.FlagWordMat,PF)
+
+        PW_WT = PW * PW_T
+        PW_WF = PW * PW_F
+        PW_WTF = PW_WT * PW_F
+        return PW,PW_WT,PW_WF,PW_WTF
+    def get_prob_result(self,PW,PF,PT):
+        PW, PW_WT, PW_WF, PW_WTF = self.get_prob_result(PW,PF,PT)
+
+    def get_input_data(self, topicSeq=None, flagSeq=None, wordSeq=None,newWord = None):
+        if topicSeq is None and flagSeq is None and wordSeq is None :
+            wordSeq = [np.zeros[self.VecSize] for _ in range(self.ContextLen)]
+            topicSeq = [self.TopicNum for _ in range(self.ContextLen)]
+            flagSeq = [self.FlagNum for _ in range(self.ContextLen)]
+        else:
+            try:
+                wordSeq = wordSeq[1:]
+                topicSeq = topicSeq[1:]
+                flagSeq = flagSeq[1:]
+                newWordID = self.Dict.GRAM2N[newWord]
+                nVector = self.WordVectorMap.get_vec(newWord)
+                nFlag = self.Dict.WF2ID[self.Dict.N2WF[newWordID]]
+                nTopic = self.LdaMap[newWordID]
+                wordSeq.append(nVector)
+                topicSeq.append(nTopic)
+                flagSeq.append(nFlag)
+
+            except KeyError as e:
+                print(str(e))
+        return wordSeq,topicSeq,flagSeq
+
+
+
+
     def get_next_context(self,preWordSeq,topicSeq,flagSeq,lastWord,lastSelected):
         preWordSeq = preWordSeq[1:]
         id,flag = self.Dict.get_id_flag(lastWord)
@@ -627,9 +682,9 @@ if __name__ == '__main__':
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
 
-    # unit_test()
-    args = sys.argv
-    print(args)
-    dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
-    meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
-    dp.write_TFRecord(meta)
+    unit_test()
+    # args = sys.argv
+    # print(args)
+    # dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
+    # meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
+    # dp.write_TFRecord(meta)

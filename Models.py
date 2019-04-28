@@ -7,9 +7,9 @@ class unionGenerator:
         self.KeyWordNum = 20
         self.VecSize = 300
         self.ContextLen = 10
-        self.HiddenUnit = 400
+        self.HiddenUnit = 800
         self.KernelSize = 5
-        self.KernelNum = 400
+        self.KernelNum = 800
         self.TopicNum = 30
         self.FlagNum = 60
         self.TopicVec = 10
@@ -18,7 +18,7 @@ class unionGenerator:
         self.WordNum = 80000
         self.BatchSize = 128
         self.L2NormValue = 0.02
-        self.DropoutProb = 1.0
+        self.DropoutProb = 0.7
         self.GlobalNorm = 0.5
         self.LearningRate = 0.001
         self.HidderLayer = 3
@@ -142,11 +142,11 @@ class unionGenerator:
             align = tf.nn.softmax(align, axis=1)
             return align, tf.reduce_mean(align * k, 1)
 
-        # _, alignKeyWord = attention(contextVector, keyWordVector, encAtteWeight)
+        _, alignKeyWord = attention(contextVector, keyWordVector, encAtteWeight)
         # selVector, _ = attention(contextVector, keyWordVector, selAtteWeight)
         # selVector = tf.squeeze(selVector)
-        # encVector = tf.concat([alignKeyWord, contextVector], axis=-1, name="Encoder_Vector")
-        encVector = contextVector
+        encVector = tf.concat([alignKeyWord, contextVector], axis=-1, name="Encoder_Vector")
+        # encVector = contextVector
         # encVector = tf.nn.l2_normalize(encVector,axis=-1)
 
         topicH = topicCNN
