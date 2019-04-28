@@ -64,8 +64,8 @@ class unionGenerator:
 
         # assert isinstance(input,tf.train.Features)
         if mode == 'train':
-            # keyWordVector = input['keyWordVector']
-            # keyWordVector = tf.reshape(keyWordVector, [self.BatchSize, self.KeyWordNum, self.VecSize], name='KeyWordVector')
+            keyWordVector = input['keyWordVector']
+            keyWordVector = tf.reshape(keyWordVector, [self.BatchSize, self.KeyWordNum, self.VecSize], name='KeyWordVector')
             #
             # selWordLabel_r = input['selWordLabel']
             # selLabel = input['selLabel']
