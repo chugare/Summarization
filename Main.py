@@ -272,7 +272,4 @@ if __name__ == '__main__':
                  LogInterval= int(args[3])
                  )
     elif args[2] == 'eval':
-        run_eval_task(
-            TaskName='DP',
-
-        )
+        pass
