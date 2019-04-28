@@ -682,9 +682,9 @@ if __name__ == '__main__':
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
 
-    unit_test()
-    # args = sys.argv
-    # print(args)
-    # dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
-    # meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
-    # dp.write_TFRecord(meta)
+    # unit_test()
+    args = sys.argv
+    print(args)
+    dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
+    meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=30, VecSize=300)
+    dp.write_TFRecord(meta)
