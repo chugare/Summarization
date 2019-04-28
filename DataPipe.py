@@ -349,7 +349,7 @@ class DataPipe:
                     # 生成单词不从自定义单词表中选择的情况
 
 
-                    currentWordId = random.randint(0,self.DictSize)
+                    currentWordId = random.randint(0,self.DictSize-1)
                     topic = self.LdaMap[currentWordId]
                     flag = self.Dict.WF2ID[self.Dict.N2WF[currentWordId]]
                     wordVec = self.WordVectorMap.get_vec(word)
