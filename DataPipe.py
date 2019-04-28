@@ -380,18 +380,18 @@ class DataPipe:
                     topic = self.LdaMap[currentWordId]
                     wordVec = self.WordVectorMap.get_vec(word)
 
-                # lineBatch.append((preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord))
-                yield {
-                    'wordVector': np.array(preWord, dtype=np.float32),
-                    'topicSeq': np.array(preTopic, dtype=np.int64),
-                    'flagSeq': np.array(preFlag, dtype=np.int64),
-                    # 'keyWordVector': np.array(refVector, dtype=np.float32),
-                    'topicLabel': topic,
-                    'flagLabel': flag,
-                    'wordLabel': currentWordId,
-                    # 'selLabel': select,
-                    # 'selWordLabel': selectWord,
-                }
+                lineBatch.append((preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord))
+                # yield {
+                #     'wordVector': np.array(preWord, dtype=np.float32),
+                #     'topicSeq': np.array(preTopic, dtype=np.int64),
+                #     'flagSeq': np.array(preFlag, dtype=np.int64),
+                #     # 'keyWordVector': np.array(refVector, dtype=np.float32),
+                #     'topicLabel': topic,
+                #     'flagLabel': flag,
+                #     'wordLabel': currentWordId,
+                #     # 'selLabel': select,
+                #     # 'selWordLabel': selectWord,
+                # }
 
 
                 preWord = preWord[1:]
@@ -401,31 +401,31 @@ class DataPipe:
                 preTopic = preTopic[1:]
                 preTopic.append(topic)
 
-        #     refMap = {}
-        #     refVector = []
-        #     for i,k in enumerate(ref_word):
-        #         refMap[k] = i
-        #         refVector.append(ref_word[k])
-        #     for i in range(len(refVector),refSize):
-        #         refVector.append(np.zeros([vecSize]))
-        #     for preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord in lineBatch:
-        #
-        #         if select > 0:
-        #             selectWord = refMap[selectWord]
-        #         else:
-        #             selectWord = refSize
-        #         yield {
-        #             'wordVector':np.array(preWord,dtype=np.float32),
-        #             'topicSeq':np.array(preTopic,dtype=np.int64),
-        #             'flagSeq':np.array(preFlag,dtype=np.int64),
-        #             'keyWordVector':np.array(refVector,dtype=np.float32),
-        #             'topicLabel':topic,
-        #             'flagLabel':flag,
-        #             'wordLabel':currentWordId,
-        #             'selLabel':select,
-        #             'selWordLabel':selectWord,
-        #         }
-        # pass
+            refMap = {}
+            refVector = []
+            for i,k in enumerate(ref_word):
+                refMap[k] = i
+                refVector.append(ref_word[k])
+            for i in range(len(refVector),refSize):
+                refVector.append(np.zeros([vecSize]))
+            for preWord,preTopic,preFlag,topic,flag,currentWordId,select,selectWord in lineBatch:
+
+                # if select > 0:
+                #     selectWord = refMap[selectWord]
+                # else:
+                #     selectWord = refSize
+                yield {
+                    'wordVector':np.array(preWord,dtype=np.float32),
+                    'topicSeq':np.array(preTopic,dtype=np.int64),
+                    'flagSeq':np.array(preFlag,dtype=np.int64),
+                    'keyWordVector':np.array(refVector,dtype=np.float32),
+                    'topicLabel':topic,
+                    'flagLabel':flag,
+                    'wordLabel':currentWordId,
+                    # 'selLabel':select,
+                    # 'selWordLabel':selectWord,
+                }
+        pass
 
     def write_TFRecord(self,meta):
 
@@ -475,7 +475,7 @@ class DataPipe:
             'wordVector': tf.FixedLenFeature(shape=[contentLen*vecSize],dtype=tf.float32),
             'topicSeq': tf.FixedLenFeature(shape=[contentLen],dtype=tf.int64),
             'flagSeq': tf.FixedLenFeature(shape=[contentLen],dtype=tf.int64),
-            # 'keyWordVector': tf.FixedLenFeature(shape=[refSize*vecSize],dtype=tf.float32),
+            'keyWordVector': tf.FixedLenFeature(shape=[refSize*vecSize],dtype=tf.float32),
             'topicLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
             'flagLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
             'wordLabel': tf.FixedLenFeature(shape=[],dtype=tf.int64),
