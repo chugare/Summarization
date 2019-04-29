@@ -263,13 +263,13 @@ LDA_TRAIN={
 }
 if __name__ == '__main__':
     args = sys.argv
-    if args[2] == 'train':
+    if args[1] == 'train':
         run_train_task(TaskName='DP',
                  Epoch=10,    # 训练的迭代次数
                  EpochSize=100000,# 每一个迭代当中的数据量
                  BatchSize=64,# 训练的批的大小
                  ReadNum = 1,# 从词向量当中读取的单词的数量，-1表示全部读取，读取大量词向量需要消耗大量的时间
-                 LogInterval= int(args[3])
+                 LogInterval= int(args[2])
                  )
-    elif args[2] == 'eval':
+    elif args[1] == 'eval':
         pass
