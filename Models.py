@@ -218,6 +218,7 @@ class unionGenerator:
                     self.BatchSize - selCount + 1)
             flagPrec = tf.reduce_sum(tf.cast(tf.equal(flagGen, flagLabel_r), tf.float32)) / (self.BatchSize - selCount + 1)
 
+            tf.summary.histogram('GenerateResult',wordGen)
             tf.summary.scalar('WordPrecision', wordPrec)
             tf.summary.scalar('TopicPrecision', topicPrec)
             tf.summary.scalar('FlagPrecision', flagPrec)

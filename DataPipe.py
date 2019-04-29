@@ -316,6 +316,12 @@ class DataPipe:
         lda = LDA.LDA_Train(TaskName = self.TaskName,SourceFile = self.SourceFile,DictName = self.DictName)
         self.LdaMap = lda.getLda()
         self.DictSize = self.Dict.DictSize
+    def get_key_word(self,line,num):
+            line = line[:]
+            random.shuffle(line)
+            num = min(num,len(line))
+            return line[:num]
+
 
     def pipe_data(self,**kwargs):
 
@@ -338,12 +344,12 @@ class DataPipe:
             preWord = [np.zeros([vecSize]) for _ in range(contentLen)]
             preTopic = [topicNum for _ in range(contentLen)]
             preFlag = [flagNum for _ in range(contentLen)]
-            ref_word = {}
+            ref_word = self.get_key_word(words,refSize)
+            ref_word = {k:self.WordVectorMap.get_vec(k) for k in ref_word}
             lineBatch = []
             for word in words:
                 select = 0
                 selectWord = ""
-                topic = topicNum
                 currentWordId,flag = self.Dict.get_id_flag(word)
                 if currentWordId <0:
 
@@ -698,9 +704,9 @@ if __name__ == '__main__':
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
 
-    unit_test()
-    # args = sys.argv
-    # print(args)
-    # dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
-    # meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=60, VecSize=300)
-    # dp.write_TFRecord(meta)
+    # unit_test()
+    args = sys.argv
+    print(args)
+    dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
+    meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=60, VecSize=300)
+    dp.write_TFRecord(meta)
