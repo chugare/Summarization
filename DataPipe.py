@@ -435,7 +435,7 @@ class DataPipe:
                 }
         pass
 
-    def write_TFRecord(self,meta):
+    def write_TFRecord(self,meta,million):
 
         gen = self.pipe_data(**meta)
         CountK = 0
@@ -456,6 +456,8 @@ class DataPipe:
                     CountM+=1
                     print("[INFO] %d M Samples has been read, Writing to record " % CountM)
                     writer.close()
+                    if CountM == million:
+                        break
                     writer = tf.python_io.TFRecordWriter(self.Name + '-%d.tfrecord'%CountM)
 
     def read_TFRecord(self,BATCH_SIZE):
