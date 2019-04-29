@@ -127,7 +127,7 @@ class unionGenerator:
         flagCNN = self.get_cnn_layer(flagVec, name="FlagCNN", kernelNum=self.KernelNum / 2)
         #
 
-        encHiddenWeight = self.get_variable("Encoder_Hidden_0", shape=[self.KernelNum, self.ContextVec], dtype=tf.float32)
+        # encHiddenWeight = self.get_variable("Encoder_Hidden_0", shape=[self.KernelNum, self.ContextVec], dtype=tf.float32)
         # wordContext = tf.matmul()
         #
         # contextVector = tf.concat([wordVector,topicVec,flagVec],axis=-1,name="Context_Vec_raw")
