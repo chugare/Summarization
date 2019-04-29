@@ -107,7 +107,7 @@ class unionGenerator:
 
         topicVec = tf.nn.embedding_lookup(topicVecMap, topicSeq)
         flagVec = tf.nn.embedding_lookup(flagVecMap, flagSeq)
-        encAtteWeight = self.get_variable("Encoder_Attention", shape=[self.VecSize, self.ContextVec], dtype=tf.float32)
+        encAtteWeight = self.get_variable("Encoder_Attention", shape=[self.VecSize, self.KernelNum], dtype=tf.float32)
         selAtteWeight = self.get_variable("Select_Attention", shape=[self.VecSize, self.ContextVec], dtype=tf.float32)
 
         rawVecSize = self.VecSize + self.TopicVec + self.FlagVec
