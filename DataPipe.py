@@ -709,7 +709,7 @@ if __name__ == '__main__':
 
     # unit_test()
     args = sys.argv
-    meta  = Meta.get_meta()
+    meta  = Meta().get_meta()
     dp = DataPipe(TaskName=meta['TaskName'], ReadNum=int(args[1]), DictName=meta['DictName'])
     # meta = getmeta(**meta)
     dp.write_TFRecord(meta,int(args[2]))
