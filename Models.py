@@ -85,18 +85,22 @@ class unionGenerator:
 
 
         else:
-            keyWordVector = tf.placeholder(tf.float32,
-                                           shape=[1, self.KeyWordNum, self.VecSize],
+            keyWordVector_p = tf.placeholder(tf.float32,
+                                           shape=[self.KeyWordNum, self.VecSize],
                                            name="Key_Word_Vector")
-            wordVector = tf.placeholder(tf.float32,
-                                        shape=[1, self.ContextLen, self.VecSize],
+            wordVector_p = tf.placeholder(tf.float32,
+                                        shape=[self.ContextLen, self.VecSize],
                                         name="Context_Vector")
-            topicSeq = tf.placeholder(tf.int32,
-                                      shape=[1, self.ContextLen],
+            topicSeq_p = tf.placeholder(tf.int32,
+                                      shape=[self.ContextLen],
                                       name="Topic_Sequence")
-            flagSeq = tf.placeholder(tf.int32,
-                                     shape=[1, self.ContextLen],
+            flagSeq_p = tf.placeholder(tf.int32,
+                                     shape=[self.ContextLen],
                                      name="Flag_Sequence")
+            keyWordVector = tf.expand_dims(keyWordVector_p,0)
+            wordVector = tf.expand_dims(wordVector_p,0)
+            topicSeq = tf.expand_dims(topicSeq_p,0)
+            flagSeq = tf.expand_dims(flagSeq_p,0)
 
         topicVecMap = self.get_variable("Topic_Vec_Map", shape=[self.TopicNum, self.TopicVec], dtype=tf.float32)
         flagVecMap = self.get_variable("Flag_Vec_Map", shape=[self.FlagNum, self.FlagVec], dtype=tf.float32)
@@ -228,8 +232,8 @@ class unionGenerator:
             loss = loss + omega
             tf.summary.scalar('Loss', loss)
             global_step = tf.placeholder(dtype=tf.int32, shape=[], name='Global_Step')
-            lr_p = global_step / 200
-            lr_tmp = (self.LRDecayRate ** lr_p) * self.LearningRate
+            lr_p = tf.log(global_step)
+            lr_tmp = (self.LRDecayRate / lr_p) * self.LearningRate
             # opt = tf.train.GradientDescentOptimizer(learning_rate=lr_tmp)
             opt = tf.train.AdamOptimizer(learning_rate=lr_tmp)
             grads = opt.compute_gradients(loss)
@@ -252,10 +256,10 @@ class unionGenerator:
             flagRes = tf.nn.softmax(flagOut)
             wordRes = tf.nn.softmax(wordOut)
             # selMap = tf.argmax(selVector)
-            # ops['keyWordVector'] = keyWordVector
-            ops['wordVector'] = wordVector
-            ops['topicSeq'] = topicSeq
-            ops['flagSeq'] = flagSeq
+            ops['keyWordVector'] = keyWordVector_p
+            ops['wordVector'] = wordVector_p
+            ops['topicSeq'] = topicSeq_p
+            ops['flagSeq'] = flagSeq_p
 
             ops['wordRes'] = wordRes
             ops['topicRes'] = topicRes

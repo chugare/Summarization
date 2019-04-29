@@ -188,7 +188,6 @@ def run_eval_task_gen(**kwargs):
     dataProvider = evalProvider.read_data_for_eval(**kwargs)
 
     ops = model.build_model_pipe(mode='infer', input=None)
-    probThresh = kwargs['ProbThresh']
     if 'CKP_DIR' not in kwargs:
         kwargs['CKP_DIR'] = 'checkpoint_' + TaskName + '/'
 
@@ -214,7 +213,7 @@ def run_eval_task_gen(**kwargs):
         # train_writer = tf.summary.FileWriter(summary_dir, sess.graph)
         if checkpoint:
             saver.restore(sess, checkpoint)
-            print('[INFO] 从上一次的检查点:\t%s开始继续训练任务' % checkpoint)
+            print('[INFO] 从上一次的检查点:\t%s开始进行验证' % checkpoint)
         else:
             print('[ERROR] 没有找到任何匹配的checkpoint文件')
         sess.graph.finalize()
@@ -225,9 +224,10 @@ def run_eval_task_gen(**kwargs):
                 batch_count = 0
                 last_time = time.time()
 
-                line, flagSeq, topicSeq, refMap, refVector = next(dataProvider)
+                line, flag, topic, refMap, refVector,refWords = next(dataProvider)
 
-
+                wordSeq,topicSeq,flagSeq = evalProvider.get_input_data()
+                wordRes = []
 
                 for v in range(len(line)):
 
@@ -236,12 +236,17 @@ def run_eval_task_gen(**kwargs):
                                                    ops['flagRes']],
                                                   feed_dict={
                                                       ops['keyWordVector']: refVector,
-                                                      ops['wordVector']: 0,
+                                                      ops['wordVector']: wordSeq,
                                                       ops['topicSeq']: topicSeq,
                                                       ops['flagSeq']: flagSeq
                                                   })
-
-
+                    newWord,newFlag,newTopic = evalProvider.get_prob_result(PW,PF,PT)
+                    wordSeq, topicSeq, flagSeq = evalProvider.get_input_data(wordSeq, topicSeq, flagSeq, newWord)
+                    wordRes.append(newWord)
+                wordRes = ''.join(wordRes)
+                print(wordRes)
+                refWords = ' '.join(refWords)
+                print(refWords)
                 cur_time = time.time()
                 time_cost = cur_time - last_time
                 total_cost = cur_time - start_time
@@ -266,10 +271,17 @@ if __name__ == '__main__':
     if args[1] == 'train':
         run_train_task(TaskName='DP',
                  Epoch=10,    # 训练的迭代次数
-                 EpochSize=100000,# 每一个迭代当中的数据量
+                 EpochSize=10,# 每一个迭代当中的数据量
                  BatchSize=64,# 训练的批的大小
                  ReadNum = 1,# 从词向量当中读取的单词的数量，-1表示全部读取，读取大量词向量需要消耗大量的时间
                  LogInterval= int(args[2])
                  )
     elif args[1] == 'eval':
+        run_eval_task_gen(
+            TaskName='DP',
+            DropoutProb = 1.0,
+            EvalCaseNum= 40,
+            ReadNum = 10,
+            SourceFile = 'DP.txt'
+        )
         pass

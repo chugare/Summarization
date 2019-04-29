@@ -181,6 +181,7 @@ class DictFreqThreshhold:
             self.__setattr__(k,kwargs[k])
 
         self.read_dic()
+        self.DictSize = min(len(self.N2GRAM),self.DictSize)
     def read_dic(self):
         try:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
@@ -314,7 +315,7 @@ class DataPipe:
         self.WordVectorMap = WordVec(**kwargs)
         lda = LDA.LDA_Train(TaskName = self.TaskName,SourceFile = self.SourceFile,DictName = self.DictName)
         self.LdaMap = lda.getLda()
-        self.DictSize = min(len(self.Dict.N2WF),self.DictSize)
+        self.DictSize = self.Dict.DictSize
 
     def pipe_data(self,**kwargs):
 
@@ -519,7 +520,7 @@ class EvalProvider:
         self.RefSize = 20
         self.TopicNum = 30
         self.FlagNum = 60
-        self.ContextLen = 20
+        self.ContextLen = 10
 
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
@@ -532,33 +533,47 @@ class EvalProvider:
 
     def get_word_mat(self):
         wordNum = self.Dict.DictSize
-        flagNum = len(self.Dict.WF2ID)
+        flagNum = self.FlagNum
         topicNum = self.TopicNum
         self.TopicWordMat = []
         self.FlagWordMat = []
         for i in range(wordNum):
-            ttmp = np.zeros(flagNum)
-            ttmp[self.Dict.WF2ID[self.Dict.N2WF[i]]] = 1
-            ftmp = np.zeros(topicNum)
-            ftmp[self.LdaMap[[i]]] = 1
-            self.TopicWordMat.append(ftmp)
-            self.FlagWordMat.append(ttmp)
+            ftmp = np.zeros(flagNum)
+            ftmp[self.Dict.WF2ID[self.Dict.N2WF[i]]] = 1
+            ttmp = np.zeros(topicNum)
+            topic = self.LdaMap[i]
+            if topic == 30:
+                ttmp = np.ones([topicNum],dtype=np.float32) * (1.0/30.0)
+            else:
+                ttmp[topic] = 1
+            self.TopicWordMat.append(ttmp)
+            self.FlagWordMat.append(ftmp)
         self.FlagWordMat =np.array(self.FlagWordMat)
         self.TopicWordMat = np.array(self.TopicWordMat)
     def _get_prob(self,PW,PF,PT):
-        PW_T = np.matmul(self.TopicWordMat,PT)
-        PW_F = np.matmul(self.FlagWordMat,PF)
-
+        PW_T = np.matmul(self.TopicWordMat,np.transpose(PT))
+        PW_F = np.matmul(self.FlagWordMat,np.transpose(PF))
+        PW_T = np.squeeze(PW_T)
+        PW_F = np.squeeze(PW_F)
+        PW = np.squeeze(PW)
+        disSize = min(PW.shape[0],PW_F.shape[0])
+        PW = PW[:disSize]
         PW_WT = PW * PW_T
         PW_WF = PW * PW_F
+
         PW_WTF = PW_WT * PW_F
         return PW,PW_WT,PW_WF,PW_WTF
     def get_prob_result(self,PW,PF,PT):
-        PW, PW_WT, PW_WF, PW_WTF = self.get_prob_result(PW,PF,PT)
+        PW, PW_WT, PW_WF, PW_WTF = self._get_prob(PW,PF,PT)
+        IdPW_WTF = np.argmax(PW_WTF)
+        resWord = self.Dict.N2GRAM[IdPW_WTF]
+        resFlag = self.Dict.N2WF[IdPW_WTF]
+        resTopic = self.LdaMap[IdPW_WTF]
+        return resWord,resFlag,resTopic
 
-    def get_input_data(self, topicSeq=None, flagSeq=None, wordSeq=None,newWord = None):
+    def get_input_data(self,wordSeq=None,topicSeq=None, flagSeq=None, newWord = None):
         if topicSeq is None and flagSeq is None and wordSeq is None :
-            wordSeq = [np.zeros[self.VecSize] for _ in range(self.ContextLen)]
+            wordSeq = [np.zeros(self.VecSize) for _ in range(self.ContextLen)]
             topicSeq = [self.TopicNum for _ in range(self.ContextLen)]
             flagSeq = [self.FlagNum for _ in range(self.ContextLen)]
         else:
@@ -606,47 +621,48 @@ class EvalProvider:
         except KeyError as e:
             print(str(e))
             return
-        try:
-            sourceFile = open(self.SourceFile,'r',encoding='utf-8')
-            for line in sourceFile:
-                line  = line.strip()
-                words = line.split(' ')
-                ref_word = {}
-                topicSeq = []
-                flagSeq =[]
-                for word in words:
-                    topic = topicNum
-                    currentWordId,flag = self.Dict.get_id_flag(word)
-                    if  currentWordId <0:
-                        currentWordId = 0
-                        flag = 0
-                        if word in ref_word:
-                            wordVec = ref_word[word]
-                        elif len(ref_word) < refSize :
-                            if word in self.WordVectorMap.vec_dic:
-                                ref_word[word] = self.WordVectorMap.get_vec(word)
-                                topic = topicNum
-                                flag = flagNum
-                            else:
-                                ref_word[word] = np.random.rand(vecSize)
-                            wordVec = ref_word[word]
+        # try:
+        sourceFile = open(self.SourceFile,'r',encoding='utf-8')
+        for line in sourceFile:
+            line  = line.strip()
+            words = line.split(' ')
+            ref_word = {}
+            topicSeq = []
+            flagSeq =[]
+            for word in words:
+                topic = topicNum
+                currentWordId,flag = self.Dict.get_id_flag(word)
+                if  currentWordId <0:
+                    currentWordId = 0
+                    flag = 0
+                    if word in ref_word:
+                        wordVec = ref_word[word]
+                    elif len(ref_word) < refSize :
+                        if word in self.WordVectorMap.vec_dic:
+                            ref_word[word] = self.WordVectorMap.get_vec(word)
+                            topic = topicNum
+                            flag = flagNum
                         else:
-                            continue
-
+                            ref_word[word] = np.random.rand(vecSize)
+                        wordVec = ref_word[word]
                     else:
-                        topic = self.LdaMap[currentWordId]
-                    topicSeq.append(topic)
-                    flagSeq.append(flag)
-                refMap = {}
-                refVector = []
-                for i,k in enumerate(ref_word):
-                    refMap[i] = k
-                    refVector.append(ref_word[k])
-                for i in range(len(refVector),refSize):
-                    refVector.append(np.zeros([vecSize]))
-                yield words,flagSeq,topicSeq,refMap,refVector
-        except Exception as e:
-            print(str(e))
+                        continue
+
+                else:
+                    topic = self.LdaMap[currentWordId]
+                topicSeq.append(topic)
+                flagSeq.append(flag)
+            refMap = {}
+            refVector = []
+            for i,k in enumerate(ref_word):
+                refMap[i] = k
+                refVector.append(ref_word[k])
+            for i in range(len(refVector),refSize):
+                refVector.append(np.zeros([vecSize]))
+            ref_word = ref_word.keys()
+            yield words,flagSeq,topicSeq,refMap,refVector,ref_word
+        # except Exception as e:
+        #     print(str(e))
 
 
 
@@ -682,9 +698,9 @@ if __name__ == '__main__':
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
 
-    # unit_test()
-    args = sys.argv
-    print(args)
-    dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
-    meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=60, VecSize=300)
-    dp.write_TFRecord(meta)
+    unit_test()
+    # args = sys.argv
+    # print(args)
+    # dp = DataPipe(TaskName='DP', ReadNum=int(args[1]), DictName='DP_DICT.txt')
+    # meta = getmeta(ContextLength=10, KeyWordNum=20, TopicNum=30, FlagNum=60, VecSize=300)
+    # dp.write_TFRecord(meta)
