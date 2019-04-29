@@ -649,7 +649,9 @@ if __name__ == '__main__':
         return kwargs
 
     def unit_test():
-        dp = DataPipe(TaskName='DP',ReadNum = 20000)
+        meta = Meta().get_meta()
+
+        dp = DataPipe(**meta)
         input = dp.read_TFRecord(64)
         keyWordVector = input['keyWordVector']
         wordVector = input['wordVector']
@@ -665,10 +667,9 @@ if __name__ == '__main__':
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-            fr1, fr2, fr3 = sess.run([topicLabel,keyWordVector, wordVector])
-            print(fr1)
-            print(fr2)
-            print(fr3)
+            res = sess.run([topicLabel,flagLabel,wordLabel,keyWordVector, topicSeq,flagSeq,wordVector])
+            for i in res:
+                print(i)
             coord.request_stop()
             coord.join(threads)
     def t1():
@@ -677,7 +678,7 @@ if __name__ == '__main__':
 
     # unit_test()
     args = sys.argv
-    meta  = Meta().get_meta()
-    dp = DataPipe(TaskName=meta['TaskName'], ReadNum=int(args[1]), DictName=meta['DictName'])
+    meta  = Meta( ReadNum=int(args[1])).get_meta()
+    dp = DataPipe(**meta)
     # meta = getmeta(**meta)
     dp.write_TFRecord(meta,int(args[2]))

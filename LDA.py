@@ -1,9 +1,7 @@
 from gensim import corpora,models,similarities
-from gensim.models.callbacks import PerplexityMetric,Callback
 import sys
-import jieba
-import numpy as np
 import DataPipe
+import random
 import logging
 # logging.basicConfig(level=logging.INFO)
 class LDA_Train:
@@ -45,10 +43,12 @@ class LDA_Train:
         N2Topic = {}
         for i in range(size):
             topicVec = lda.get_term_topics(i, minimum_probability=0.0)
-            topicSel = self.numTopic
+
             if len(topicVec)>0:
                 maxTopic = max(topicVec,key=lambda x:x[1])
                 topicSel = maxTopic[0]
+            else:
+                topicSel = random.randint(0,self.numTopic-1)
             N2Topic[i] = topicSel
         return N2Topic
 if __name__ == '__main__':

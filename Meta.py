@@ -31,7 +31,8 @@ class Meta:
         self.numTopic = 30
 
         self.Epoch = 10
-        self.EpochSize = 10
+        self.EpochSize = 100000
+
         self.ReadNum = 10
         self.LogInterval = 10
 

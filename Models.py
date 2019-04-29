@@ -112,7 +112,7 @@ class unionGenerator:
         topicVec = tf.nn.embedding_lookup(topicVecMap, topicSeq)
         flagVec = tf.nn.embedding_lookup(flagVecMap, flagSeq)
         encAtteWeight = self.get_variable("Encoder_Attention", shape=[self.VecSize, self.KernelNum], dtype=tf.float32)
-        selAtteWeight = self.get_variable("Select_Attention", shape=[self.VecSize, self.ContextVec], dtype=tf.float32)
+        # selAtteWeight = self.get_variable("Select_Attention", shape=[self.VecSize, self.ContextVec], dtype=tf.float32)
 
         rawVecSize = self.VecSize + self.TopicVec + self.FlagVec
         rawVecSize *= self.ContextLen
@@ -233,7 +233,7 @@ class unionGenerator:
             loss = loss + omega
             tf.summary.scalar('Loss', loss)
             global_step = tf.placeholder(dtype=tf.int32, shape=[], name='Global_Step')
-            lr_p = tf.log(tf.cast(global_step,tf.float32)+1)
+            lr_p = tf.log(tf.cast(global_step+10,tf.float32))
             lr_tmp = (self.LRDecayRate / lr_p) * self.LearningRate
             # opt = tf.train.GradientDescentOptimizer(learning_rate=lr_tmp)
             opt = tf.train.AdamOptimizer(learning_rate=lr_tmp)
