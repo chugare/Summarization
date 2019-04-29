@@ -1,6 +1,6 @@
 
 class Meta:
-    def __init__(self):
+    def __init__(self,**kwargs):
         self.KeyWordNum = 5
         self.VecSize = 300
         self.ContextLen = 10
@@ -32,9 +32,12 @@ class Meta:
 
         self.Epoch = 10
         self.EpochSize = 10
-        self.ReadNum = 1
+        self.ReadNum = 10
         self.LogInterval = 10
 
         self.EvalCaseNum = 40
+        for k in kwargs:
+            self.__setattr__(k,kwargs[k])
+
     def get_meta(self):
         return self.__dict__

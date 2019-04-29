@@ -105,9 +105,9 @@ def run_eval_task_selmap(**kwargs):
     TaskName = kwargs['TaskName']
     evalCaseNum = kwargs['EvalCaseNum']
 
-    evalProvider = DataPipe.EvalProvider(**kwargs)
+    dataPipe = DataPipe.DataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
-    dataProvider = evalProvider.read_data_for_eval(**kwargs)
+    dataProvider = dataPipe.pipe_data_for_eval(**kwargs)
 
     ops = model.build_model_pipe(mode='infer',input = None)
     probThresh = kwargs['ProbThresh']
@@ -184,9 +184,9 @@ def run_eval_task_gen(**kwargs):
     TaskName = kwargs['TaskName']
     evalCaseNum = kwargs['EvalCaseNum']
 
-    evalProvider = DataPipe.EvalProvider(**kwargs)
+    dataPipe = DataPipe.DataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
-    dataProvider = evalProvider.read_data_for_eval(**kwargs)
+    dataProvider = dataPipe.pipe_data_for_eval(**kwargs)
 
     ops = model.build_model_pipe(mode='infer', input=None)
     if 'CKP_DIR' not in kwargs:
@@ -227,7 +227,7 @@ def run_eval_task_gen(**kwargs):
 
                 line, flag, topic, refMap, refVector,refWords = next(dataProvider)
 
-                wordSeq,topicSeq,flagSeq = evalProvider.get_input_data()
+                wordSeq,topicSeq,flagSeq = dataPipe.get_input_data()
                 wordRes = []
 
                 for v in range(len(line)):
@@ -241,8 +241,8 @@ def run_eval_task_gen(**kwargs):
                                                       ops['topicSeq']: topicSeq,
                                                       ops['flagSeq']: flagSeq
                                                   })
-                    newWord,newFlag,newTopic = evalProvider.get_prob_result(PW,PF,PT)
-                    wordSeq, topicSeq, flagSeq = evalProvider.get_input_data(wordSeq, topicSeq, flagSeq, newWord)
+                    newWord,newFlag,newTopic = dataPipe.get_prob_result(PW,PF,PT)
+                    wordSeq, topicSeq, flagSeq = dataPipe.get_input_data(wordSeq, topicSeq, flagSeq, newWord)
                     wordRes.append(newWord)
                 wordRes = ''.join(wordRes)
                 print(wordRes)
@@ -267,11 +267,6 @@ if __name__ == '__main__':
         meta = Meta().get_meta()
         run_train_task(**meta)
     elif args[1] == 'eval':
-        run_eval_task_gen(
-            TaskName='DP',
-            DropoutProb = 1.0,
-            EvalCaseNum= 40,
-            ReadNum = 10,
-            SourceFile = 'DP.txt'
-        )
+        meta = Meta().get_meta()
+        run_eval_task_gen(**meta)
         pass
