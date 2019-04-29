@@ -2,6 +2,7 @@ import Tool
 import LDA
 import os,time,logging,sys
 import DataPipe,Models
+from Meta import  Meta
 import numpy as np
 import tensorflow as tf
 def run_train_task(**kwargs):
@@ -260,22 +261,11 @@ def run_eval_task_gen(**kwargs):
                 break
 
 
-LDA_TRAIN={
-    'TaskName':'LDA_TRAIN',
-    'SOURCE_FILE':'data.txt',
-
-
-}
 if __name__ == '__main__':
     args = sys.argv
     if args[1] == 'train':
-        run_train_task(TaskName='DP',
-                 Epoch=10,    # 训练的迭代次数
-                 EpochSize=10,# 每一个迭代当中的数据量
-                 BatchSize=64,# 训练的批的大小
-                 ReadNum = 1,# 从词向量当中读取的单词的数量，-1表示全部读取，读取大量词向量需要消耗大量的时间
-                 LogInterval= int(args[2])
-                 )
+        meta = Meta().get_meta()
+        run_train_task(**meta)
     elif args[1] == 'eval':
         run_eval_task_gen(
             TaskName='DP',
