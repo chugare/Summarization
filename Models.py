@@ -233,7 +233,7 @@ class unionGenerator:
             loss = loss + omega
             tf.summary.scalar('Loss', loss)
             global_step = tf.placeholder(dtype=tf.int32, shape=[], name='Global_Step')
-            lr_p = tf.log(tf.cast(global_step,tf.float32))
+            lr_p = tf.log(tf.cast(global_step,tf.float32)+1)
             lr_tmp = (self.LRDecayRate / lr_p) * self.LearningRate
             # opt = tf.train.GradientDescentOptimizer(learning_rate=lr_tmp)
             opt = tf.train.AdamOptimizer(learning_rate=lr_tmp)

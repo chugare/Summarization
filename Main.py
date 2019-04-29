@@ -268,5 +268,6 @@ if __name__ == '__main__':
         run_train_task(**meta)
     elif args[1] == 'eval':
         meta = Meta().get_meta()
+
         run_eval_task_gen(**meta)
         pass
