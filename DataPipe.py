@@ -327,7 +327,7 @@ class DataPipe:
     def pipe_data(self,**kwargs):
 
         try:
-            contentLen = kwargs['ContextLength']
+            contentLen = kwargs['ContextLen']
             vecSize = kwargs['VecSize']
             refSize = kwargs['KeyWordNum']
             topicNum = kwargs['TopicNum']
@@ -465,7 +465,7 @@ class DataPipe:
         metaFile = open('meta_tfrecord.json','r',encoding='utf-8')
         meta = json.load(metaFile)
         try:
-            contentLen = meta['ContextLength']
+            contentLen = meta['ContextLen']
             vecSize = meta['VecSize']
             refSize = meta['KeyWordNum']
 
