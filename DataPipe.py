@@ -581,6 +581,7 @@ class DataPipe:
                 print(str(e))
         return wordSeq,topicSeq,flagSeq
 
+
     def get_next_context(self,preWordSeq,topicSeq,flagSeq,lastWord,lastSelected):
         preWordSeq = preWordSeq[1:]
         id,flag = self.Dict.get_id_flag(lastWord)

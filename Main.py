@@ -3,6 +3,7 @@ import LDA
 import os,time,logging,sys
 import DataPipe,Models
 from Meta import  Meta
+import rouge
 import numpy as np
 import tensorflow as tf
 def run_train_task(**kwargs):
@@ -170,9 +171,8 @@ def run_eval_task_selmap(**kwargs):
                 time_cost = cur_time - last_time
                 total_cost = cur_time - start_time
                 print('[INFO] Sample %d 验证结果：Pre=%.2f  用时: %.2f 共计用时 %.2f' % (
-                        batch_count, 0, time_cost, total_cost))
+                        i, 0, time_cost, total_cost))
 
-                batch_count += 1
             except KeyboardInterrupt:
                 print("[INFO] 强行停止验证 开始保存结果")
 
@@ -220,6 +220,8 @@ def run_eval_task_gen(**kwargs):
         sess.graph.finalize()
         start_time = time.time()
         # 开始训练
+        hyps = []
+        refs = []
         for i in range(evalCaseNum):
             try:
                 batch_count = 0
@@ -245,21 +247,27 @@ def run_eval_task_gen(**kwargs):
                     wordSeq, topicSeq, flagSeq = dataPipe.get_input_data(wordSeq, topicSeq, flagSeq, newWord)
                     wordRes.append(newWord)
                 wordRes = ''.join(wordRes)
+                wordRes = ' '.join(list(wordRes))
                 print(wordRes)
                 refWords = ' '.join(refWords)
                 print(refWords)
                 cur_time = time.time()
                 time_cost = cur_time - last_time
                 total_cost = cur_time - start_time
-                print('[INFO] Sample %d 验证结果：Pre=%.2f  用时: %.2f 共计用时 %.2f' % (
-                    batch_count, 0, time_cost, total_cost))
 
-                batch_count += 1
+                line = ''.join(line)
+                line = ' '.join(list(line))
+                hyps.append(wordRes)
+                refs.append(line)
+                print('[INFO] Sample %d 验证结果：Pre=%.2f  用时: %.2f 共计用时 %.2f' % (
+                    i, 0, time_cost, total_cost))
+
             except KeyboardInterrupt:
                 print("[INFO] 强行停止验证 开始保存结果")
 
                 break
-
+        res = rouge.Rouge().get_scores(hyps=hyps, refs=refs,avg=True)
+        print(res)
 
 if __name__ == '__main__':
     args = sys.argv
@@ -267,7 +275,7 @@ if __name__ == '__main__':
         meta = Meta().get_meta()
         run_train_task(**meta)
     elif args[1] == 'eval':
-        meta = Meta(ReadNum=800000).get_meta()
+        meta = Meta(ReadNum=10).get_meta()
 
         run_eval_task_gen(**meta)
         pass

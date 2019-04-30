@@ -71,13 +71,8 @@ def r():
 def kk(**kwargs):
     return kwargs
 # r()
-import random
-li = list(range(10))
-def sh(li):
-    random.shuffle(li)
-    print(li)
-sh(li)
-print(li)
+p = "123456789"
+print(list(p))
 
 
 # var1 = tf.placeholder(shape=[50],dtype=tf.float32)
