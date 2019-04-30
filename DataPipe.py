@@ -553,7 +553,7 @@ class DataPipe:
 
     def get_prob_result(self,PW,PF,PT):
         PW, PW_WT, PW_WF, PW_WTF = self._get_prob(PW,PF,PT)
-        IdPW_WTF = np.argmax(PW_WTF)
+        IdPW_WTF = np.argmax(PW)
         resWord = self.Dict.N2GRAM[IdPW_WTF]
         resFlag = self.Dict.N2WF[IdPW_WTF]
         resTopic = self.LdaMap[IdPW_WTF]
