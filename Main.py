@@ -275,7 +275,7 @@ if __name__ == '__main__':
         meta = Meta().get_meta()
         run_train_task(**meta)
     elif args[1] == 'eval':
-        meta = Meta(ReadNum=10).get_meta()
+        meta = Meta(ReadNum=800000).get_meta()
 
         run_eval_task_gen(**meta)
         pass
