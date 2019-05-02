@@ -6,8 +6,59 @@ import numpy as np
 
 class Model:
     def __init__(self):
+        self.RNNUnitNum = 400
+        self.KeyWordNum = 5
+        self.VecSize = 300
+        self.ContextLen = 10
+        self.HiddenUnit = 800
+        self.ContextVec = 400
+        self.WordNum = 80000
+        self.BatchSize = 128
+        self.L2NormValue = 0.02
+        self.DropoutProb = 0.7
+        self.GlobalNorm = 0.5
+        self.LearningRate = 0.001
+        self.MaxSentenceLength = 100
         pass
+    def get_attention(self,q,k,name='Attention'):
+        assert q is tf.Tensor
+        assert k is tf.Tensor
+        w = self.get_variable(name=name+'_weight',shape = [q.shape[-1],k.shape[-1]],dtype=tf.float32,
+                              initializer=tf.glorot_uniform_initializer())
+        q = tf.expand_dims(q,1)
+        align = tf.tensordot(q,w,[-1,0])*k
+        align = tf.reduce_sum(align,axis=-1)
+        align = tf.nn.softmax(align)
+        align = tf.expand_dims(align,-1)
+        v = align*k
+        v = tf.reduce_sum(v,1)
+        return v
+    def get_variable(self,name,shape,dtype,initializer=None):
+        if initializer == None:
+            initializer = tf.truncated_normal_initializer(stddev=0.2)
+        var = tf.get_variable(name,shape,dtype,initializer)
+        l2_norm = tf.reduce_mean(var**2) * self.L2NormValue
+        tf.add_to_collection('l2norm',l2_norm)
+        return var
     def build_model(self):
+
+        SentenceVector = tf.placeholder(dtype=tf.float32,shape=[self.BatchSize,self.MaxSentenceLength,self.VecSize],name='Sequence_Vector')
+        KeyWordVector = tf.placeholder(dtype=tf.float32,shape=[self.BatchSize,self.KeyWordNum,self.VecSize],name='Sequence_Vector')
+        WordLabel = tf.placeholder(dtype=tf.int64,shape=[self.BatchSize,self.MaxSentenceLength],name="Word_Label")
+        SentenceLength = tf.placeholder(dtype=tf.int64,shape=[self.BatchSize,self.MaxSentenceLength],name="Sentence_Length")
+
+        cell = tf.nn.rnn_cell.BasicLSTMCell(num_units = self.RNNUnitNum)
+
+        initState = cell.zero_state(batch_size=self.BatchSize,dtype=tf.float32)
+
+        def loopOpt(i,state,output):
+            lastWord = SentenceVector[:,i]
+            atten = self.get_attention(q=lastWord,k=KeyWordVector)
+            cellInput = tf.concat([lastWord,atten],axis=-1)
+            cell.call(state,cellInput)
+            i = i + 1
+
+
 
 class Main:
     def __init__(self):
@@ -22,6 +73,9 @@ class Data:
         self.DictSize = 80000
         self.FlagNum = 60
         self.TopicNum = 30
+        self.KeyWordNum = 5
+        self.VecSize = 300
+        self.MaxSentenceSize = 100
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
         self.Dict  = DictFreqThreshhold(DictName = self.DictName,DictSize = self.DictSize)
@@ -59,19 +113,28 @@ class Data:
         for line in sourceFile:
             line = line.strip()
             words = line.split(' ')
-            preWord = [np.zeros([self.VecSize]) for _ in range(self.ContextLen)]
-            preTopic = [self.TopicNum for _ in range(self.ContextLen)]
-            preFlag = [self.FlagNum for _ in range(self.ContextLen)]
+            wordVecList = []
+            wordVecList.append(np.zeros([self.VecSize],np.float32))
+            wordList = []
             ref_word = self.get_key_word(words, self.KeyWordNum)
             ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_word}
-            lineBatch = []
             for word in words:
-                select = 0
-                selectWord = ""
                 currentWordId, flag = self.Dict.get_id_flag(word)
                 if currentWordId < 0:
                     # 生成单词不从自定义单词表中选择的情况
                     currentWordId = random.randint(0, self.DictSize - 1)
                     topic = self.LdaMap[currentWordId]
                     flag = self.Dict.WF2ID[self.Dict.N2WF[currentWordId]]
-                    wordVec = self.WordVectorMap.get_vec(word)
+                    word = self.Dict.N2GRAM[currentWordId]
+                wordVec = self.WordVectorMap.get_vec(word)
+                wordVecList.append(wordVec)
+                wordList.append(currentWordId)
+            if len(wordList)>100:
+                wordList = wordList[:100]
+            else:
+                I = 100-len(wordList)
+                for i in range(I):
+                    wordList.append(0)
+                    wordVecList.append(np.zeros([self.VecSize],np.float32))
+
+            wordVecList = wordVecList[:100]

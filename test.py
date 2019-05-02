@@ -71,25 +71,14 @@ def r():
 def kk(**kwargs):
     return kwargs
 # r()
-p = "123456789"
-print(list(p))
 
-
-# var1 = tf.placeholder(shape=[50],dtype=tf.float32)
-# val = np.arange(50)
-# vart = tf.reshape(var1,[5,2,5])
-# vall = tf.expand_dims(vart,1)
-# l2 = tf.nn.l2_loss(var1)
-#
-# l22 = tf.reduce_sum(var1**2)
-# with tf.Session() as sess:
-#     p = sess.run(vart,feed_dict={
-#         var1:val
-#     })
-#     print(p)
-#
-#     p = sess.run(vall,feed_dict={
-#         var1:val
-#     })
-#     print(p)
-
+var1 = tf.placeholder(shape=[50],dtype=tf.float32)
+val = np.arange(50)
+vart = tf.reshape(var1,[5,2,5])
+var2 = tf.zeros(shape=[5,1,5])
+res = vart * var2
+with tf.Session() as sess:
+    p = sess.run(res,feed_dict={
+        var1:val
+    })
+    print(p)
