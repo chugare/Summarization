@@ -46,18 +46,59 @@ class Model:
         KeyWordVector = tf.placeholder(dtype=tf.float32,shape=[self.BatchSize,self.KeyWordNum,self.VecSize],name='Sequence_Vector')
         WordLabel = tf.placeholder(dtype=tf.int64,shape=[self.BatchSize,self.MaxSentenceLength],name="Word_Label")
         SentenceLength = tf.placeholder(dtype=tf.int64,shape=[self.BatchSize,self.MaxSentenceLength],name="Sentence_Length")
-
+        globalStep = tf.placeholder(dtype=tf.int64,shape=[],name='GlobalStep')
         cell = tf.nn.rnn_cell.BasicLSTMCell(num_units = self.RNNUnitNum)
-
+        WordLabelOH = tf.one_hot(WordLabel,self.WordNum)
         initState = cell.zero_state(batch_size=self.BatchSize,dtype=tf.float32)
-
-        def loopOpt(i,state,output):
+        outputTA = tf.TensorArray(dtype=tf.float32,size=self.MaxSentenceLength,dynamic_size='False',
+                                   clear_after_read=False,tensor_array_name='Output_ta')
+        maskTa = tf.TensorArray(dtype=tf.float32,size=self.MaxSentenceLength,dynamic_size='False',
+                                   clear_after_read=False,tensor_array_name='Mask_ta')
+        def loopOpt(i,state,output,maskTA):
             lastWord = SentenceVector[:,i]
             atten = self.get_attention(q=lastWord,k=KeyWordVector)
             cellInput = tf.concat([lastWord,atten],axis=-1)
-            cell.call(state,cellInput)
+            mask = tf.cast(tf.greater(SentenceLength,i),dtype=tf.float32)
+            maskTA = maskTA.write(i,mask)
+            new_output,new_state = cell.call(state,cellInput)
+            new_output = new_output*mask
+            output = output.write(i,new_output)
             i = i + 1
+            return i,new_state,output,maskTA
+        i = tf.constant(0)
+        _,finalState,outputTA,maskTa = tf.while_loop(lambda i,*_: i<self.MaxSentenceLength,loopOpt,[i,initState,outputTA,maskTa])
 
+        outWeight = self.get_variable('OutLayerWeight',shape=[self.RNNUnitNum,self.WordNum],dtype=tf.float32,
+                                      initializer=tf.glorot_uniform_initializer())
+        outputTensor = outputTA.stack()
+        maskTensor = maskTa.stack()
+        res = tf.tensordot(outputTensor,outWeight,[-1,0])
+        res = tf.nn.l2_normalize(res,axis=-1)
+
+        loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=res,labels=WordLabelOH,name='CrossEntropy')
+        finalLoss = loss*maskTensor
+        omega = tf.add_n(tf.get_collection('l2norm'))
+        finalLoss = tf.reduce_sum(finalLoss)/tf.reduce_sum(maskTensor) + omega
+        tf.summary.histogram('Loss',finalLoss)
+
+        optimizer = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
+        grads = optimizer.compute_gradients(loss)
+        for grad, var in grads:
+            tf.summary.histogram(var.name + '/gradient', grad)
+        merge = tf.summary.merge_all()
+        train = optimizer.apply_gradients(grads,global_step=globalStep)
+        ops = {
+            'SentenceVector':SentenceVector,
+            'KeyWordVector':KeyWordVector,
+            'WordLabel':WordLabel,
+            'SentenceLength':SentenceLength,
+            'globalStep':globalStep,
+            'train':train,
+            'loss':finalLoss,
+            'merge':merge,
+
+        }
+        return ops
 
 
 class Main:
@@ -116,6 +157,7 @@ class Data:
             wordVecList = []
             wordVecList.append(np.zeros([self.VecSize],np.float32))
             wordList = []
+            wordLength = len(words)
             ref_word = self.get_key_word(words, self.KeyWordNum)
             ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_word}
             for word in words:
@@ -131,10 +173,11 @@ class Data:
                 wordList.append(currentWordId)
             if len(wordList)>100:
                 wordList = wordList[:100]
+                wordLength  = 100
             else:
                 I = 100-len(wordList)
                 for i in range(I):
                     wordList.append(0)
                     wordVecList.append(np.zeros([self.VecSize],np.float32))
-
             wordVecList = wordVecList[:100]
+            yield wordVecList,ref_word,wordList,wordLength
