@@ -97,6 +97,7 @@ class Model:
         pred = tf.argmax(res,-1)
         pred = tf.cast(pred,tf.int32)
         correct = tf.cast(tf.equal(pred,WordLabel),tf.int32)
+        correct = correct * maskTensor
         prec = tf.cast(tf.reduce_sum(correct),dtype=tf.float32)/tf.reduce_sum(maskTensor)
         lr_p = tf.log(tf.cast(globalStep+1, tf.float32))
         lr_tmp = (1/ (lr_p+1)) * self.LearningRate
