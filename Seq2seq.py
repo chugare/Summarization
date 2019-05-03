@@ -17,7 +17,7 @@ class Model:
         self.L2NormValue = 0.02
         self.DropoutProb = 0.7
         self.GlobalNorm = 0.5
-        self.LearningRate = 0.001
+        self.LearningRate = 0.01
         self.MaxSentenceLength = 100
         for k,v in kwargs.items():
             self.__setattr__(k,v)
@@ -90,7 +90,7 @@ class Model:
         outputTensor = outputTA.stack()
         maskTensor = maskTa.stack()
         res = tf.tensordot(outputTensor,outWeight,[-1,0])
-        res = tf.nn.l2_normalize(res,axis=-1)
+        # res = tf.nn.l2_normalize(res,axis=-1)
 
         loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=res,labels=WordLabelOH,name='CrossEntropy')
         finalLoss = loss*maskTensor
@@ -102,6 +102,10 @@ class Model:
         grads = optimizer.compute_gradients(loss)
         for grad, var in grads:
             tf.summary.histogram(var.name + '/gradient', grad)
+        grad, var = zip(*grads)
+        tf.clip_by_global_norm(grad, self.GlobalNorm)
+        grads = zip(grad, var)
+
         merge = tf.summary.merge_all()
         train = optimizer.apply_gradients(grads)
         ops = {
