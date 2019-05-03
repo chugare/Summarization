@@ -321,5 +321,5 @@ class Data:
             count += 1
 
 if __name__ == '__main__':
-    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 32).get_meta()
+    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 64,ReadNum = 800000).get_meta()
     Main().run_train(**meta)
