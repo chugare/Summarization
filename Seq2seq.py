@@ -99,7 +99,7 @@ class Model:
         correct = tf.cast(tf.equal(pred,WordLabel),tf.int32)
         # correct = correct * maskTensor
         sample_count = tf.reduce_sum(maskTensor)
-        prec = tf.cast(tf.reduce_sum(correct)-self.BatchSize*self.MaxSentenceLength+sample_count,dtype=tf.float32)/sample_count
+        prec = (tf.cast(tf.reduce_sum(correct),dtype=tf.float32)-self.BatchSize*self.MaxSentenceLength+sample_count)/sample_count
         lr_p = tf.log(tf.cast(globalStep+1, tf.float32))
         lr_tmp = (1/ (lr_p+1)) * self.LearningRate
         loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=res,labels=WordLabelOH,name='CrossEntropy')
