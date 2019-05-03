@@ -88,12 +88,14 @@ class Model:
         outWeight = self.get_variable('OutLayerWeight',shape=[self.RNNUnitNum,self.WordNum],dtype=tf.float32,
                                       initializer=tf.glorot_uniform_initializer())
         outputTensor = outputTA.stack()
+        outputTensor = tf.transpose(outputTensor,[1,0,2])
         maskTensor = maskTa.stack()
         res = tf.tensordot(outputTensor,outWeight,[-1,0])
         # res = tf.nn.l2_normalize(res,axis=-1)
 
         pred = tf.argmax(res,-1)
-        correct = tf.equal(pred,WordLabel)
+        pred = tf.cast(pred,tf.int32)
+        correct = tf.cast(tf.equal(pred,WordLabel),tf.int32)
         prec = tf.cast(tf.reduce_sum(correct),dtype=tf.float32)/tf.reduce_sum(maskTensor)
         lr_p = tf.log(tf.cast(globalStep+1, tf.float32))
         lr_tmp = (1/ (lr_p+1)) * self.LearningRate
@@ -104,7 +106,7 @@ class Model:
         finalLoss = tf.reduce_sum(finalLoss)/tf.reduce_sum(maskTensor) + omega
         tf.summary.scalar('Loss',finalLoss)
 
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
+        optimizer = tf.train.AdamOptimizer(learning_rate=lr_tmp)
         grads = optimizer.compute_gradients(loss)
         for grad, var in grads:
             tf.summary.histogram(var.name + '/gradient', grad)
@@ -332,5 +334,5 @@ class Data:
             count += 1
 
 if __name__ == '__main__':
-    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 128 ,ReadNum = 800000).get_meta()
+    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 128 ,ReadNum = 800).get_meta()
     Main().run_train(**meta)
