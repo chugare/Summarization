@@ -51,6 +51,7 @@ class Model:
         globalStep = tf.placeholder(dtype=tf.int32,shape=[],name='GlobalStep')
         cell = tf.nn.rnn_cell.BasicLSTMCell(num_units = self.RNNUnitNum)
         WordLabelOH = tf.one_hot(WordLabel,self.WordNum)
+        print(WordLabelOH)
         initState = cell.zero_state(batch_size=self.BatchSize,dtype=tf.float32)
         outputTA = tf.TensorArray(dtype=tf.float32,size=self.MaxSentenceLength,dynamic_size=False,
                                    clear_after_read=False,tensor_array_name='Output_ta')
@@ -90,6 +91,7 @@ class Model:
         outputTensor = outputTA.stack()
         outputTensor = tf.transpose(outputTensor,[1,0,2])
         maskTensor = maskTa.stack()
+        maskTensor = tf.transpose(maskTensor,[1,0,2])
         res = tf.tensordot(outputTensor,outWeight,[-1,0])
         # res = tf.nn.l2_normalize(res,axis=-1)
 
@@ -99,7 +101,7 @@ class Model:
         prec = tf.cast(tf.reduce_sum(correct),dtype=tf.float32)/tf.reduce_sum(maskTensor)
         lr_p = tf.log(tf.cast(globalStep+1, tf.float32))
         lr_tmp = (1/ (lr_p+1)) * self.LearningRate
-
+        print(res)
         loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=res,labels=WordLabelOH,name='CrossEntropy')
         finalLoss = loss*maskTensor
         omega = tf.add_n(tf.get_collection('l2norm'))
@@ -334,5 +336,5 @@ class Data:
             count += 1
 
 if __name__ == '__main__':
-    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 64 ,ReadNum = 800000).get_meta()
+    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 64 ,ReadNum = 8000).get_meta()
     Main().run_train(**meta)
