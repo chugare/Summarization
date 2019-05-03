@@ -237,7 +237,7 @@ class unionGenerator:
             lr_tmp = (self.LRDecayRate / lr_p) * self.LearningRate
             # opt = tf.train.GradientDescentOptimizer(learning_rate=lr_tmp)
             opt = tf.train.AdamOptimizer(learning_rate=lr_tmp)
-            grads = opt.compute_gradients(loss)
+            grads = opt.compute_gradients(loss,global_step=global_step)
             for grad, var in grads:
                 tf.summary.histogram(var.name + '/gradient', grad)
 
