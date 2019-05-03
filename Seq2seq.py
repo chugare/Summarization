@@ -13,7 +13,7 @@ class Model:
         self.HiddenUnit = 800
         self.ContextVec = 400
         self.WordNum = 20000
-        self.BatchSize = 32
+        self.BatchSize = 64
         self.L2NormValue = 0.02
         self.DropoutProb = 0.7
         self.GlobalNorm = 0.5
@@ -92,11 +92,17 @@ class Model:
         res = tf.tensordot(outputTensor,outWeight,[-1,0])
         # res = tf.nn.l2_normalize(res,axis=-1)
 
+        pred = tf.argmax(res,-1)
+        correct = tf.equal(pred,WordLabel)
+        prec = tf.cast(tf.reduce_sum(correct),dtype=tf.float32)/tf.reduce_sum(maskTensor)
+        lr_p = tf.log(tf.cast(globalStep+1, tf.float32))
+        lr_tmp = (1/ (lr_p+1)) * self.LearningRate
+
         loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=res,labels=WordLabelOH,name='CrossEntropy')
         finalLoss = loss*maskTensor
         omega = tf.add_n(tf.get_collection('l2norm'))
         finalLoss = tf.reduce_sum(finalLoss)/tf.reduce_sum(maskTensor) + omega
-        tf.summary.histogram('Loss',finalLoss)
+        tf.summary.scalar('Loss',finalLoss)
 
         optimizer = tf.train.AdamOptimizer(learning_rate=self.LearningRate)
         grads = optimizer.compute_gradients(loss)
@@ -116,6 +122,7 @@ class Model:
             'GlobalStep':globalStep,
             'train':train,
             'loss':finalLoss,
+            'precision':prec,
             'merge':merge,
 
         }
@@ -183,8 +190,8 @@ class Main:
                         try:
                             last_time = time.time()
 
-                            loss, _, merge = sess.run(
-                                [ops['loss'], ops['train'], ops['merge']], feed_dict={
+                            loss, _, prec,merge = sess.run(
+                                [ops['loss'], ops['train'],ops['precision'] ,ops['merge']], feed_dict={
                                     ops['GlobalStep']: global_step,
                                     ops['SentenceVector']:v[0],
                                     ops['KeyWordVector']:v[1],
@@ -197,8 +204,8 @@ class Main:
                             if global_step % max(logInterval, 1) == 0:
                                 train_writer.add_summary(merge, global_step)
                                 # logger.write_log([global_step/10,loss,total_cost])
-                            print('[INFO] Batch %d 训练结果：LOSS=%.2f 用时: %.2f 共计用时 %.2f' % (
-                                batch_count, loss, time_cost, total_cost))
+                            print('[INFO] Batch %d 训练结果：LOSS=%.2f 准确率=%.2f 用时: %.2f 共计用时 %.2f' % (
+                                batch_count, loss,prec, time_cost, total_cost))
 
                             # print('[INFO] Batch %d'%batch_count)
                             # matplotlib 实现可视化loss
@@ -325,5 +332,5 @@ class Data:
             count += 1
 
 if __name__ == '__main__':
-    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 64,ReadNum = 800000).get_meta()
+    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 128 ,ReadNum = 800000).get_meta()
     Main().run_train(**meta)
