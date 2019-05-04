@@ -105,6 +105,69 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     length_map = {}
     dic = {}
     dic_pos = {}
+
+    def cut_without_comma(commentLine):
+        commentLine = commentLine.replace('\n', ' ')
+        sens = re.split(r"[,、，。；：\n]", commentLine)
+        patterns = [
+            r"[（\(]+[一二三四五六七八九十\d]+[\)）]+[，、。．,\s]*",
+            r"[⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇]",
+            # r"[\s]",
+            r"[a-zA-Z《》【】（）\s]+",
+        ]
+        res = []
+        for sen in sens:
+            for p in patterns:
+                sen = re.sub(p, '', sen)
+            if len(sen) < 3:
+                continue
+            cutres = pseg.lcut(sen)
+            for w in cutres:
+                wc = w.word
+                wf = w.flag
+                if wc not in dic:
+                    dic[wc] = 0
+                    dic_pos[wc] = {}
+                dic[wc] += 1
+                if wf not in dic_pos[wc]:
+                    dic_pos[wc][wf] = 0
+                dic_pos[wc][wf] += 1
+            lc = len(cutres)
+            if lc not in length_map:
+                length_map[lc] = 0
+            length_map[lc] += 1
+            cutres = list(zip(*cutres))
+            sen = ' '.join(list(cutres[0]))
+            res.append(sen)
+            return ' '.join(res)
+
+    def cut_with_comma(commentLine):
+        patterns = [
+            r"[（\(]+[一二三四五六七八九十\d]+[\)）]+[，、。．,\s]*",
+            r"[⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇]",
+            # r"[\s]",
+            r"[a-zA-Z《》【】（）\s]+",
+        ]
+        for p in patterns:
+            commentLine = re.sub(p, '', commentLine)
+
+            cutres = pseg.lcut(commentLine)
+            for w in cutres:
+                wc = w.word
+                wf = w.flag
+                if wc not in dic:
+                    dic[wc] = 0
+                    dic_pos[wc] = {}
+                dic[wc] += 1
+                if wf not in dic_pos[wc]:
+                    dic_pos[wc][wf] = 0
+                dic_pos[wc][wf] += 1
+            lc = len(cutres)
+            if lc not in length_map:
+                length_map[lc] = 0
+            length_map[lc] += 1
+            cutres = list(zip(*cutres))
+            return ' '.join(list(cutres[0]))
     for line in sourceFile:
         line = line.strip()
         # if len(line) != 0:
@@ -118,53 +181,8 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
             print("[INFO] Now reading Line : %d "%(countFile))
         if countFile == testCase:
             break
-        def cut_without_comma(commentLine):
-            commentLine = commentLine.replace('\n',' ')
-            sens = re.split(r"[,、，。；：\n]",commentLine)
-            patterns = [
-                r"[（\(]+[一二三四五六七八九十\d]+[\)）]+[，、。．,\s]*",
-                r"[⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇]",
-                # r"[\s]",
-                r"[a-zA-Z《》【】（）\s]+",
-            ]
-            res = []
-            for sen in sens:
-                for p in patterns:
-                    sen = re.sub(p,'',sen)
-                if len(sen)<3:
-                    continue
-                cutres = pseg.lcut(sen)
-                for w in cutres:
-                    wc = w.word
-                    wf = w.flag
-                    if wc not in dic:
-                        dic[wc] = 0
-                        dic_pos[wc] = {}
-                    dic[wc] += 1
-                    if wf not in dic_pos[wc]:
-                        dic_pos[wc][wf] = 0
-                    dic_pos[wc][wf]  += 1
-                lc = len(cutres)
-                if lc not in length_map:
-                    length_map[lc]=0
-                length_map[lc] += 1
-                cutres = list(zip(*cutres))
-                sen = ' '.join(list(cutres[0]))
-                data_file.write(sen)
-                res.append(sen)
-                return ' '.join(res)
 
-        def cut_with_comma(commentLine):
-            patterns = [
-                r"[（\(]+[一二三四五六七八九十\d]+[\)）]+[，、。．,\s]*",
-                r"[⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇]",
-                # r"[\s]",
-                r"[a-zA-Z《》【】（）\s]+",
-            ]
-            for p in patterns:
-                commentLine = re.sub(p, '', commentLine)
-            
-        data_file.write(cut_without_comma(commentLine))
+        data_file.write(cut_with_comma(commentLine))
         data_file.write('\n')
             #     except StopIteration:
             #         pass
@@ -185,12 +203,12 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     for k in ll:
         print("k = %d : %d"%(k,length_map[k]))
 def SeperateSet():
-
+    pass
 if __name__ == '__main__':
     arg = sys.argv
     mod = arg[1]
     fileName = arg[2]
     if mod == '-t':
-        TXT2TXT_extract(fileName,"DP")
+        TXT2TXT_extract(fileName,"DP_comma")
     elif mod == '-x':
         XML2TXT_extract(fileName)
