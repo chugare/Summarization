@@ -13,6 +13,8 @@ class LDA_Train:
         self.DictName = "DICT.txt"
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
+        self.TaskName = "DP"
+
     def lda_build(self):
         text = open(self.SourceFile,'r',encoding='utf-8')
         text_set = [line.split(' ') for line in text]
