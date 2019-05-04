@@ -99,6 +99,7 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     if dis_file == None:
         dis_file = TaskName+".txt"
     data_file = open(dis_file,'w',encoding='utf-8')
+    eval_file = open('E_'+dis_file,'w',encoding='utf-8')
 
     commentLine = ""
     countFile = 0
@@ -168,6 +169,8 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
             length_map[lc] += 1
             cutres = list(zip(*cutres))
             return ' '.join(list(cutres[0]))
+    ecount = 0
+
     for line in sourceFile:
         line = line.strip()
         # if len(line) != 0:
@@ -181,9 +184,13 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
             print("[INFO] Now reading Line : %d "%(countFile))
         if countFile == testCase:
             break
-
-        data_file.write(cut_with_comma(commentLine))
-        data_file.write('\n')
+        if ecount < 1000:
+            ecount += 1
+            eval_file.write(cut_with_comma(commentLine))
+            eval_file.write('\n')
+        else:
+            data_file.write(cut_with_comma(commentLine))
+            data_file.write('\n')
             #     except StopIteration:
             #         pass
             # commentLine = ""
@@ -209,6 +216,6 @@ if __name__ == '__main__':
     mod = arg[1]
     fileName = arg[2]
     if mod == '-t':
-        TXT2TXT_extract(fileName,"DP_comma")
+        TXT2TXT_extract(fileName,"DP_comma",testCase = 101000)
     elif mod == '-x':
         XML2TXT_extract(fileName)
