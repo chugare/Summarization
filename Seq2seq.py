@@ -233,6 +233,81 @@ class Main:
                     break
 
     def run_eval(self,**kwargs):
+        TaskName = kwargs['TaskName']
+        evalCaseNum = kwargs['EvalCaseNum']
+
+        dataPipe = Data(**kwargs).batch_data(1)
+        dataPipe = Data(**kwargs)
+        model = Model(**kwargs)
+        dataProvider = dataPipe.pipe_data_for_eval(**kwargs)
+
+        ops = model.build_model_pipe(mode='infer', input=None)
+        probThresh = kwargs['ProbThresh']
+        if 'CKP_DIR' not in kwargs:
+            kwargs['CKP_DIR'] = 'checkpoint_' + TaskName + '/'
+
+        if 'SUMMARY_DIR' not in kwargs:
+            kwargs['SUMMARY_DIR'] = 'summary_' + TaskName + '/'
+
+        checkpoint_dir = os.path.abspath(kwargs['CKP_DIR'])  # meta
+        # summary_dir = os.path.abspath(kwargs['SUMMARY_DIR'])  # meta
+        if not os.path.exists(checkpoint_dir):
+            os.mkdir(checkpoint_dir)
+        # 模型搭建
+        # 训练过程
+        saver = tf.train.Saver()
+        config = tf.ConfigProto(
+            # log_device_placement=True
+
+        )
+        config.gpu_options.allow_growth = True
+        with tf.Session(config=config) as sess:
+            # 训练配置，包括参数初始化以及读取检查点
+
+            checkpoint = tf.train.latest_checkpoint(checkpoint_dir)
+            # train_writer = tf.summary.FileWriter(summary_dir, sess.graph)
+            if checkpoint:
+                saver.restore(sess, checkpoint)
+                print('[INFO] 从上一次的检查点:\t%s开始继续训练任务' % checkpoint)
+            else:
+                print('[ERROR] 没有找到任何匹配的checkpoint文件')
+            sess.graph.finalize()
+            start_time = time.time()
+            # 开始训练
+            for i in range(evalCaseNum):
+                try:
+                    batch_count = 0
+                    last_time = time.time()
+
+                    line, flagSeq, topicSeq, refMap, refVector = next(dataProvider)
+
+                    for v in range(len(line)):
+
+                        PW, PT, PF, PS, SV = sess.run([ops['wordRes'],
+                                                       ops['topicRes'],
+                                                       ops['flagRes'],
+                                                       ops['selRes'],
+                                                       ops['selMap']],
+                                                      feed_dict={
+                                                          ops['keyWordVector']: refVector,
+                                                          ops['wordVector']: 0,
+                                                          ops['topicSeq']: topicSeq,
+                                                          ops['flagSeq']: flagSeq
+                                                      })
+                        if PS > probThresh:
+                            pass
+                            # PWTF =
+
+                    cur_time = time.time()
+                    time_cost = cur_time - last_time
+                    total_cost = cur_time - start_time
+                    print('[INFO] Sample %d 验证结果：Pre=%.2f  用时: %.2f 共计用时 %.2f' % (
+                        i, 0, time_cost, total_cost))
+
+                except KeyboardInterrupt:
+                    print("[INFO] 强行停止验证 开始保存结果")
+
+                    break
 
 class Data:
     def __init__(self,**kwargs):
