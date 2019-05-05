@@ -185,7 +185,7 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
         if len(commentLine) < 5:
             continue
         countFile += 1
-        if (countFile) % 100 == 0:
+        if (countFile) % 1000 == 0:
             print("[INFO] Now reading Line : %d "%(countFile))
         if countFile == testCase:
             break
@@ -205,7 +205,8 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     for w in dic:
         if dic[w]>thershold:
             word_type = max(dic_pos[w],key = lambda x:dic_pos[w][x])
-            dic_file.write("%d %s %s\n"%(count,w,word_type))
+            wordCount = dic[w]
+            dic_file.write("%d %s %s %d\n"%(count,w,word_type,wordCount))
             count+=1
     dic_file.close()
     # pos_file.close()
@@ -214,15 +215,12 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     ll = sorted(length_map.keys(),key = lambda x:x)
     for k in ll:
         print("k = %d : %d"%(k,length_map[k]))
-def SeperateSet():
-    pass
 if __name__ == '__main__':
     arg = sys.argv
     mod = arg[1]
     fileName = arg[2]
     if mod == '-t':
         TXT2TXT_extract(fileName,"DP_comma",testCase = -1
-
                         )
     elif mod == '-x':
         XML2TXT_extract(fileName)

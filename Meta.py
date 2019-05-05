@@ -37,6 +37,9 @@ class Meta:
         self.LogInterval = 10
 
         self.EvalCaseNum = 40
+
+
+        self.MaxSentenceLength = 100
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
 
