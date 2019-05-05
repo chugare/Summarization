@@ -124,7 +124,7 @@ class Data:
             else:
                 I = 100-len(wordList)
                 for i in range(I):
-                    wordList.append(0)
+                    wordList.append(random.randint(0,9999))
                     wordVecList.append(np.zeros([self.VecSize],np.float32))
             wordVecList = wordVecList[:100]
             refMap = {}
@@ -207,7 +207,7 @@ class Model:
         def loopOpt(i,state,output,maskTA):
             lastWord = SentenceVector[:,i]
 
-            q = lastWord
+            q = state[0]
             k = KeyWordVector
             q = tf.expand_dims(q, 1)
             align = tf.tensordot(q, weightAtten, [-1, 0]) * k
@@ -293,26 +293,17 @@ class Model:
             state = tf.placeholder(dtype=tf.float32,shape = [self.BatchSize,2,self.RNNUnitNum])
             stateTuple = tf.nn.rnn_cell.LSTMStateTuple(state[:,0],state[:,1])
             runState = tf.cond(tf.equal(i,0), lambda: initState, lambda: stateTuple)
-            lastWord = tf.squeeze(SentenceVector,1)
 
-            q = lastWord
-            k = KeyWordVector
-            q = tf.expand_dims(q, 1)
-            align = tf.tensordot(q, weightAtten, [-1, 0]) * k
-            align = tf.reduce_sum(align, axis=-1)
-            align = tf.nn.softmax(align)
-            align = tf.expand_dims(align, -1)
-            v = align * k
-            v = tf.reduce_sum(v, 1)
-            atten = v
+            outputTA = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
+                                      clear_after_read=False, tensor_array_name='Output_ta')
+            maskTa = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
+                                    clear_after_read=False, tensor_array_name='Mask_ta')
 
-            cellInput = tf.concat([lastWord, atten], axis=-1)
-
-            new_output, new_state = cell(cellInput, runState)
-
-            loopOpt(1,runState,)
+            _,new_state,outputTA,maskTa =  loopOpt(0,runState,outputTA,maskTa)
+            outputTensor = outputTA.stack()
+            outputTensor = tf.transpose(outputTensor, [1, 0, 2])
+            res = tf.tensordot(outputTensor,outWeight,[-1,0])
             # new_output = new_output*mask
-            res = tf.tensordot(new_output, outWeight, [-1, 0])
             res = tf.squeeze(res)
             resProb = tf.nn.softmax(res)
             ops = {
@@ -475,13 +466,13 @@ class Main:
                     state = np.zeros([1,2,model.RNNUnitNum])
                     SentenceVector = np.zeros(shape=[model.VecSize],dtype=np.float32)
                     wordList = []
-                    for i in range(wordLength[0]):
+                    for l in range(wordLength[0]):
                         SentenceVector = np.reshape(SentenceVector,[1,1,-1])
                         prob, newState = sess.run([ops['resProb'],ops['newState']],
                                           feed_dict={
                                               ops['SentenceVector']: SentenceVector ,
                                               ops['KeyWordVector']: refVector,
-                                              ops['i']: i,
+                                              ops['i']: l,
                                               ops['oldState']: state,
 
                                           })
