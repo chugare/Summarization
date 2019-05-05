@@ -277,9 +277,9 @@ class Main:
                     batch_count = 0
                     last_time = time.time()
 
-                    line, flagSeq, topicSeq, refMap, refVector = next(dataProvider)
+                    wordVecList, refVector, wordList, wordLength = next(dataPipe)
 
-                    for v in range(len(line)):
+                    for v in range(len(wordList)):
 
                         PW, PT, PF, PS, SV = sess.run([ops['wordRes'],
                                                        ops['topicRes'],
@@ -390,7 +390,7 @@ class Data:
             for i in range(len(refVector), self.KeyWordNum):
                 refVector.append(np.zeros([self.VecSize]))
             # print(len(wordVecList))
-            # print(len(refVector))
+            # print(len(refVector))2
             yield wordVecList,refVector,wordList,wordLength
 
     def batch_data(self,batchSize):
