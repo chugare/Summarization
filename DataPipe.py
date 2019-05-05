@@ -54,7 +54,7 @@ class WordVec:
     @staticmethod
     def ulw(word):
         pattern = [
-            r'[,.\(\)（），。\-\+\*/\\_|]{2,}',
+            # r'[,.\(\)（），。\-\+\*/\\_|]{2,}',
             r'\d+',
             r'[qwertyuiopasdfghjklzxcvbnm]+',
             r'[ｑｗｅｒｔｙｕｉｏｐａｓｄｆｇｈｊｋｌｚｘｃｖｂｎｍ]+',
@@ -171,18 +171,20 @@ class DictFreqThreshhold:
         self.GRAM2N = {}
         self.N2GRAM = {}
         self.N2WF = {}
+        self.N2FREQ = {}
         self.WF2ID ={}
         self.ID2WF = {}
         self.freq_threshold = 0
         self.wordvec = None
         self.ULSW = ['\n', '\t',' ','\n']
-        self.DictName = 'DICT.txt'
+        self.DictName = 'DP_comma_DICT.txt'
         self.DictSize = 80000
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
 
         self.read_dic()
         self.DictSize = min(len(self.N2GRAM),self.DictSize)
+        self.HuffmanEncoding()
     def read_dic(self):
         try:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
@@ -196,8 +198,14 @@ class DictFreqThreshhold:
 
                 wordIndex = int(wordInfo[0].strip())
                 wordFlag = wordInfo[2]
+                wordFreq = wordInfo[3]
                 self.GRAM2N[word] = wordIndex
                 self.N2GRAM[wordIndex] = word
+                try:
+                    self.N2FREQ[wordIndex] = int(wordFreq.strip())
+                except Exception as e:
+                    print(line)
+                    print(wordInfo)
                 self.N2WF[wordIndex] = wordFlag
                 if wordFlag not in self.WF2ID:
                     self.WF2ID[wordFlag] = wordFlagCount
@@ -302,6 +310,47 @@ class DictFreqThreshhold:
             else:
                 res[C - i - 1] = title[pos - i - 1]
         return res
+
+
+    def HuffmanEncoding(self):
+        class HuffmanNode:
+            def __init__(self,val = None,word = None):
+                self.right = None
+                self.left = None
+                self.value = val
+                self.word = word
+                self.huffman = ''
+        Nodes = [HuffmanNode(self.N2FREQ[k],k) for k in self.N2FREQ]
+        if len(Nodes)<1:
+            return
+        while len(Nodes)>1:
+            Nodes.sort(key=lambda node:node.value,reverse=True)
+            nv = Nodes[-1].value+Nodes[-2].value
+            tmpNode = HuffmanNode(nv)
+            tmpNode.left = Nodes[-2]
+            tmpNode.right = Nodes[-1]
+            Nodes.pop(-1)
+            Nodes.pop(-1)
+            Nodes.append(tmpNode)
+        self.N2HUFF = {}
+        rootNode = Nodes[0]
+        NodeQ = [rootNode]
+        while len(NodeQ) >0:
+            tmpNode = NodeQ[0]
+            NodeQ.pop(0)
+            if tmpNode.word is not None:
+                self.N2HUFF[tmpNode.word] = tmpNode.huffman
+                continue
+            if tmpNode.left is not None:
+                tmpNode.left.huffman = tmpNode.huffman + '0'
+                NodeQ.append(tmpNode.left)
+            if tmpNode.right is not None:
+                tmpNode.right.huffman = tmpNode.huffman + '1'
+                NodeQ.append(tmpNode.right)
+        for k in self.N2HUFF:
+            print("%s %d %s"%(self.N2GRAM[k],self.N2FREQ[k],self.N2HUFF[k]))
+
+
 class DataPipe:
 
     def __init__(self,**kwargs):
@@ -676,10 +725,10 @@ if __name__ == '__main__':
     def t1():
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
-
-    # unit_test()
-    args = sys.argv
-    meta  = Meta( ReadNum=int(args[1])).get_meta()
-    dp = DataPipe(**meta)
-    # meta = getmeta(**meta)
-    dp.write_TFRecord(meta,int(args[2]))
+    dc = DictFreqThreshhold()
+    # # unit_test()
+    # args = sys.argv
+    # meta  = Meta( ReadNum=int(args[1])).get_meta()
+    # dp = DataPipe(**meta)
+    # # meta = getmeta(**meta)
+    # dp.write_TFRecord(meta,int(args[2]))
