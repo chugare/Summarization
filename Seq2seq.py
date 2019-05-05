@@ -42,7 +42,7 @@ class Model:
         l2_norm = tf.reduce_mean(var**2) * self.L2NormValue
         tf.add_to_collection('l2norm',l2_norm)
         return var
-    def build_model(self):
+    def build_model(self,mode):
 
         SentenceVector = tf.placeholder(dtype=tf.float32,shape=[self.BatchSize,self.MaxSentenceLength,self.VecSize],name='Sequence_Vector')
         KeyWordVector = tf.placeholder(dtype=tf.float32,shape=[self.BatchSize,self.KeyWordNum,self.VecSize],name='Sequence_Vector')
@@ -237,11 +237,9 @@ class Main:
         evalCaseNum = kwargs['EvalCaseNum']
 
         dataPipe = Data(**kwargs).batch_data(1)
-        dataPipe = Data(**kwargs)
         model = Model(**kwargs)
-        dataProvider = dataPipe.pipe_data_for_eval(**kwargs)
 
-        ops = model.build_model_pipe(mode='infer', input=None)
+        ops = model.build_model()
         probThresh = kwargs['ProbThresh']
         if 'CKP_DIR' not in kwargs:
             kwargs['CKP_DIR'] = 'checkpoint_' + TaskName + '/'
@@ -413,5 +411,8 @@ class Data:
             count += 1
 
 if __name__ == '__main__':
-    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 64 ,ReadNum = 800000,LearningRate = 0.001,SourceFile='DP_comma.txt').get_meta()
+    meta = Meta.Meta(TaskName = 'DP_s2s',BatchSize = 64 ,ReadNum = 800000,
+                     LearningRate = 0.001,
+                     SourceFile='DP_comma.txt',
+                     DictName = "DP_comma_DICT.txt").get_meta()
     Main().run_train(**meta)
