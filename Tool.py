@@ -108,7 +108,7 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     dic_pos = {}
 
     def cut_without_comma(commentLine):
-        commentLine = commentLine.replace('\n', ' ')
+        commentLine = commentLine.replace('\n', '')
         sens = re.split(r"[,、，。；：\n]", commentLine)
         patterns = [
             r"[（\(]+[一二三四五六七八九十\d]+[\)）]+[，、。．,\s]*",
@@ -143,6 +143,8 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
             return ' '.join(res)
 
     def cut_with_comma(commentLine):
+
+
         patterns = [
             r"[（\(]+[一二三四五六七八九十\d]+[\)）]+[，、。．,\s]*",
             r"[⑴⑵⑶⑷⑸⑹⑺⑻⑼⑽⑾⑿⒀⒁⒂⒃⒄⒅⒆⒇]",
@@ -179,6 +181,9 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
         #     if len(commentLine)!=0:
         #         try:
         commentLine = line
+        commentLine = commentLine.replace('\n', '')
+        if len(commentLine) < 5:
+            continue
         countFile += 1
         if (countFile) % 100 == 0:
             print("[INFO] Now reading Line : %d "%(countFile))
