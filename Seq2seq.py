@@ -230,6 +230,8 @@ class Model:
 
         outWeight = self.get_variable('OutLayerWeight',shape=[self.RNNUnitNum,self.WordNum],dtype=tf.float32,
                                       initializer=tf.glorot_uniform_initializer())
+
+
         if mode == 'train':
             WordLabel = tf.placeholder(dtype=tf.int32, shape=[self.BatchSize, self.MaxSentenceLength],
                                        name="Word_Label")
@@ -506,8 +508,8 @@ if __name__ == '__main__':
                          WordNum = int(args[2]),
                          LearningRate=0.001,
                          EpochSize = int(args[3]),
-                         SourceFile='DP_comma.txt',
-                         DictName="DP_comma_DICT.txt").get_meta()
+                         SourceFile='DP.txt',
+                         DictName="DP_DICT.txt").get_meta()
         if args[4] == 't':
             Main().run_train(**meta)
         elif args[4] == 'v':

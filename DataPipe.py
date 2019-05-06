@@ -184,7 +184,7 @@ class DictFreqThreshhold:
 
         self.read_dic()
         self.DictSize = min(len(self.N2GRAM),self.DictSize)
-        self.HuffmanEncoding()
+        # self.HuffmanEncoding()
     def read_dic(self):
         try:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
