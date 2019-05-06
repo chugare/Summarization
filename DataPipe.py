@@ -176,7 +176,7 @@ class DictFreqThreshhold:
         self.ID2WF = {}
         self.freq_threshold = 0
         self.wordvec = None
-        self.ULSW = ['\n', '\t',' ','\n']
+        self.ULSW = ['\n', '\t',' ','']
         self.DictName = 'DP_comma_DICT.txt'
         self.DictSize = 80000
         for k in kwargs:
@@ -196,7 +196,8 @@ class DictFreqThreshhold:
                 if len(wordInfo)<1:
                     continue
                 word = wordInfo[1]
-
+                if word in self.ULSW:
+                    continue
                 wordIndex = int(wordInfo[0].strip())
                 wordFlag = wordInfo[2]
                 self.GRAM2N[word] = wordIndex
@@ -315,9 +316,7 @@ class DictFreqThreshhold:
             else:
                 res[C - i - 1] = title[pos - i - 1]
         return res
-
-
-    def HuffmanEncoding(self):
+    def HuffmanEncoding(self,forceBuild = False):
         class HuffmanNode:
             def __init__(self,val = None,word = None):
                 self.right = None
@@ -326,11 +325,19 @@ class DictFreqThreshhold:
                 self.word = word
                 self.huffman = ''
         Nodes = [HuffmanNode(self.N2FREQ[k],k) for k in self.N2FREQ]
-        if len(Nodes)<1:
+        if not forceBuild:
+            try:
+                meta_file = open('Huffman_dic.json','r',encoding='utf-8')
+                self.N2HUFF = json.load(meta_file)
+                print('[INFO] Huffman dictionary has been readed')
+                return
+            except Exception:
+                pass
+        if len(Nodes) < 1:
             return
-        while len(Nodes)>1:
-            Nodes.sort(key=lambda node:node.value,reverse=True)
-            nv = Nodes[-1].value+Nodes[-2].value
+        while len(Nodes) > 1:
+            Nodes.sort(key=lambda node: node.value, reverse=True)
+            nv = Nodes[-1].value + Nodes[-2].value
             tmpNode = HuffmanNode(nv)
             tmpNode.left = Nodes[-2]
             tmpNode.right = Nodes[-1]
@@ -340,7 +347,7 @@ class DictFreqThreshhold:
         self.N2HUFF = {}
         rootNode = Nodes[0]
         NodeQ = [rootNode]
-        while len(NodeQ) >0:
+        while len(NodeQ) > 0:
             tmpNode = NodeQ[0]
             NodeQ.pop(0)
             if tmpNode.word is not None:
@@ -352,8 +359,10 @@ class DictFreqThreshhold:
             if tmpNode.right is not None:
                 tmpNode.right.huffman = tmpNode.huffman + '1'
                 NodeQ.append(tmpNode.right)
-        for k in self.N2HUFF:
-            print("%s %d %s"%(self.N2GRAM[k],self.N2FREQ[k],self.N2HUFF[k]))
+        meta_file = open('Huffman_dic.json', 'w', encoding='utf-8')
+        json.dump(self.N2HUFF,meta_file)
+        # for k in self.N2HUFF:
+        #     print("%s %d %s"%(self.N2GRAM[k],self.N2FREQ[k],self.N2HUFF[k]))
 
 
 class DataPipe:

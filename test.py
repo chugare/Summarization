@@ -75,8 +75,8 @@ def kk(**kwargs):
 var1 = tf.placeholder(shape=[50],dtype=tf.float32)
 val = np.arange(50)
 vart = tf.reshape(var1,[5,2,5])
-var2 = tf.ones(shape=[5,1,5])
-res = vart * var2
+var2 = tf.ones(shape=[5,2,5])
+res = tf.reduce_prod(var2)
 res2 = var2*20
 res2 = tf.greater(vart,res2)
 res2 = tf.cast(res2,tf.float32)

@@ -72,6 +72,7 @@ class Data:
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
         self.Dict  = DictFreqThreshhold(DictName = self.DictName,DictSize = self.DictSize)
+        self.Dict.HuffmanEncoding()
         self.WordVectorMap = WordVec(**kwargs)
         # lda = LDA.LDA_Train(TaskName = self.TaskName,SourceFile = self.SourceFile,DictName = self.DictName)
         # self.LdaMap = lda.getLda()
