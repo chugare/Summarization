@@ -190,6 +190,7 @@ class DictFreqThreshhold:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
             wordFlagCount = 0
             wordCount = 0
+            freqMode = True
             for line in dic_file:
                 wordInfo = line.split(' ')
                 if len(wordInfo)<1:
@@ -198,14 +199,18 @@ class DictFreqThreshhold:
 
                 wordIndex = int(wordInfo[0].strip())
                 wordFlag = wordInfo[2]
-                wordFreq = wordInfo[3]
                 self.GRAM2N[word] = wordIndex
                 self.N2GRAM[wordIndex] = word
-                try:
-                    self.N2FREQ[wordIndex] = int(wordFreq.strip())
-                except Exception as e:
-                    print(line)
-                    print(wordInfo)
+                if len(wordInfo) > 3 and freqMode:
+
+                    wordFreq = wordInfo[3]
+                    try:
+                        self.N2FREQ[wordIndex] = int(wordFreq.strip())
+                    except Exception as e:
+                        print(line)
+                        print(wordInfo)
+                else:
+                    freqMode = False
                 self.N2WF[wordIndex] = wordFlag
                 if wordFlag not in self.WF2ID:
                     self.WF2ID[wordFlag] = wordFlagCount
