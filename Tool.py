@@ -235,6 +235,9 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     dic_file = open(TaskName+'_DICT.txt','w',encoding='utf-8')
     # pos_file = open('POS.txt','w',encoding='utf-8')
     count = 0
+    ULSW = ['\n', '\t', ' ', '']
+    for i in ULSW:
+        dic[i] = 0
     for w in dic:
         if dic[w]>thershold:
             word_type = max(dic_pos[w],key = lambda x:dic_pos[w][x])
@@ -253,7 +256,7 @@ if __name__ == '__main__':
     mod = arg[1]
     fileName = arg[2]
     if mod == '-t':
-        TXT2TXT_extract(fileName,"DP_comma",testCase = -1
+        TXT2TXT_extract(fileName,"DP_comma",testCase = 10000
                         )
     elif mod == '-x':
         XML2TXT_extract(fileName)

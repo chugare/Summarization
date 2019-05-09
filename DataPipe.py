@@ -318,7 +318,7 @@ class DictFreqThreshhold:
                 res[C - i - 1] = title[pos - i - 1]
         return res
     def getHuffmanDict(self):
-        maxHuffLen = len(self.N2HUFF[max(dc.N2HUFF,key=lambda k:len(dc.N2HUFF[k]))])
+        maxHuffLen = len(self.N2HUFF[max(self.N2HUFF,key=lambda k:len(self.N2HUFF[k]))])
 
         try:
             meta_file = open('Huffman_Layer.json','r',encoding='utf-8')
