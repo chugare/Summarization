@@ -256,7 +256,7 @@ if __name__ == '__main__':
     mod = arg[1]
     fileName = arg[2]
     if mod == '-t':
-        TXT2TXT_extract(fileName,"DP_comma",testCase = 10000
+        TXT2TXT_extract(fileName,"DP_comma",testCase = -1
                         )
     elif mod == '-x':
         XML2TXT_extract(fileName)

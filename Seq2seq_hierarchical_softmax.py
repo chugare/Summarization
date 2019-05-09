@@ -543,7 +543,7 @@ if __name__ == '__main__':
 
 
     if len(args)>1:
-        meta = Meta(TaskName='DP_s2s_hierarchacal', BatchSize=64,
+        meta = Meta(TaskName='DP_s2s_hierarchacal', BatchSize=128,
                          ReadNum=int(args[1]),
                          WordNum = int(args[2]),
                          LearningRate=0.001,
@@ -560,7 +560,7 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DP_s2s_hierarchacal',BatchSize = 64 ,ReadNum = 800000,
+        meta = Meta(TaskName = 'DP_s2s_hierarchacal',BatchSize = 128 ,ReadNum = 800000,
                          LearningRate = 0.01,
                          SourceFile='DP_comma.txt',
                          DictName = "DP_comma_DICT.txt").get_meta()
