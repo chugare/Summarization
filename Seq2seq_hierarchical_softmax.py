@@ -161,7 +161,6 @@ class Data:
             KeyWordVecList = []
             StateList = []
             OutWordList = []
-
             for i in range(self.BatchSize):
                 tmpLength = self.SampleReadPos[i] + 1
                 if self.SampleQueue[i] is None or tmpLength >= self.SampleQueue[i][-1]:
@@ -170,14 +169,13 @@ class Data:
                     StateList[i] = np.zeros([2,self.HiddenUnit],dtype=np.float32)
                 else:
                     self.SampleReadPos[i] = tmpLength
-                    StateList[i] = stateList[i]
+                    StateList[i] = stateList[:,i,:]
                 InWordVecList.append(self.SampleQueue[i][0][tmpLength])
                 KeyWordVecList.append(self.SampleQueue[i][1])
                 OutWordList.append(self.SampleQueue[i][2])
-
+            StateList = np.transpose(np.array(StateList),[1,0,2])
             return InWordVecList,KeyWordVecList,StateList,OutWordList
 
-    def batch_data_state(self):
 
 
     def batch_data(self,batchSize):
@@ -480,22 +478,27 @@ class Main:
             # 开始训练
 
             for i in range(start_epoch, epoch):
-                inputPipe = dataPipe.batch_data(kwargs['BatchSize'])
+                inputPipe = dataPipe.pipe_data()
+                dataBatchor = Data.Databatchor(inputPipe,**kwargs)
+
                 try:
                     batch_count = 0
-                    for v in inputPipe:
-                        if batch_count == kwargs['EpochSize']:
-                            break
+                    newState = None
+                    for i in range(epochSize):
+                        # if batch_count == kwargs['EpochSize']:
+                        #     break
                         try:
                             last_time = time.time()
+                            v = dataBatchor.get_next(newState)
 
-                            loss, _, prec,merge = sess.run(
-                                [ops['loss'], ops['train'],ops['precision'] ,ops['merge']], feed_dict={
+                            loss, _, outState,precMac,precMic,merge = sess.run(
+                                [ops['loss'], ops['train'],ops['NewState'],
+                                 ops['precMac'],ops['precMic'],ops['merge']], feed_dict={
                                     ops['GlobalStep']: global_step,
-                                    ops['SentenceVector']:v[0],
+                                    ops['InWordVector']:v[0],
                                     ops['KeyWordVector']:v[1],
-                                    ops['WordLabel']:v[2],
-                                    ops['SentenceLength']:v[3],
+                                    ops['State']:v[2],
+                                    ops['WordLabel']:v[3],
                                 })
                             cur_time = time.time()
                             time_cost = cur_time - last_time
@@ -503,9 +506,9 @@ class Main:
                             if global_step % max(logInterval, 1) == 0:
                                 train_writer.add_summary(merge, global_step)
                                 # logger.write_log([global_step/10,loss,total_cost])
-                            print('[INFO] Batch %d 训练结果：LOSS=%.2f 准确率=%.2f 用时: %.2f 共计用时 %.2f' % (
-                                batch_count, loss,prec, time_cost, total_cost))
-
+                            print('[INFO] Batch %d 训练结果：LOSS=%.2f Macro准确率=%.2f Micro准确率=%.2f 用时: %.2f 共计用时 %.2f' % (
+                                batch_count,loss,precMac,precMic,time_cost, total_cost))
+                            newState = np.array(outState)
                             # print('[INFO] Batch %d'%batch_count)
                             # matplotlib 实现可视化loss
                             batch_count += 1
@@ -607,6 +610,9 @@ class Main:
 if __name__ == '__main__':
 
     args = sys.argv
+
+
+
 
     if len(args)>1:
         meta = Meta(TaskName='DP_s2s', BatchSize=64,
