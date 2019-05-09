@@ -318,29 +318,48 @@ class DictFreqThreshhold:
                 res[C - i - 1] = title[pos - i - 1]
         return res
     def getHuffmanDict(self):
+        maxHuffLen = len(self.N2HUFF[max(dc.N2HUFF,key=lambda k:len(dc.N2HUFF[k]))])
 
-        maxHuffLen = max(self.N2HUFF,key=lambda k:len(self.N2HUFF[k]))
+        try:
+            meta_file = open('Huffman_Layer.json','r',encoding='utf-8')
+            jsdata = json.load(meta_file)
+
+            huffTable = jsdata[0]
+            huffLabelTable = jsdata[1]
+            huffLenTable = jsdata[2]
+            print('[INFO] Huffman Layer Data has been readed')
+            return huffTable,huffLabelTable,huffLenTable
+        except Exception:
+            pass
+        huffTable = []
+        huffLabelTable = []
+        huffLenTable = []
         for k in range(self.DictSize):
-            if k not in self.N2HUFF:
+            # tmphuff = np.zeros(shape=[maxHuffLen],dtype=np.int32)
+            tmphuff = [0]*maxHuffLen
+            # tmplabel = np.zeros(shape=[maxHuffLen],dtype=np.int32)
+            tmplabel = [0]*maxHuffLen
+            if str(k) not in self.N2HUFF:
+                huffTable.append(tmphuff)
+                huffLabelTable.append(tmplabel)
+                huffLenTable.append(0)
                 continue
-            huffman_str = self.N2HUFF[k]
+            huffman_str = self.N2HUFF[str(k)]
             tlen = len(huffman_str)
-            tmphuff = np.zeros(shape=[maxHuffLen],dtype=np.int32)
-            tmplabel = np.zeros(shape=[maxHuffLen],dtype=np.int32)
-            currval = 0
+            coding = ""
+            for i in range(len(huffman_str)):
+                if i > 0:
+                    coding = huffman_str[:i]
+                tmphuff[i] = self.HUFF2LAYER[coding]
+                tmplabel[i] = 0 if huffman_str[i] == '0' else 1
 
-            for i,c in enumerate(huffman_str):
-                if c == '0':
-                    tmphuff[i] = currval
-                    tmplabel[i] = 0
-                    currval = currval * 2 + 1
+            huffTable.append(tmphuff)
+            huffLabelTable.append(tmplabel)
+            huffLenTable.append(tlen)
+        meta_file = open('Huffman_Layer.json','w',encoding='utf-8')
+        json.dump([huffTable,huffLabelTable,huffLenTable],meta_file)
+        return huffTable,huffLabelTable,huffLenTable
 
-                if c == '1':
-                    tmphuff[i] = currval
-                    tmplabel[i] = 1
-                    currval = currval * 2 + 2
-            vecl.append(v)
-            labell.append(tmplabel)
     def HuffmanEncoding(self,forceBuild = False):
         class HuffmanNode:
             def __init__(self,val = None,word = None):
@@ -353,13 +372,14 @@ class DictFreqThreshhold:
         if not forceBuild:
             try:
                 meta_file = open('Huffman_dic.json','r',encoding='utf-8')
-                self.N2HUFF = json.load(meta_file)
+                self.N2HUFF,self.HUFF2LAYER,self.LAYER2HUFF = json.load(meta_file)
                 print('[INFO] Huffman dictionary has been readed')
                 return
             except Exception:
                 pass
         if len(Nodes) < 1:
             return
+
         while len(Nodes) > 1:
             Nodes.sort(key=lambda node: node.value, reverse=True)
             nv = Nodes[-1].value + Nodes[-2].value
@@ -373,14 +393,20 @@ class DictFreqThreshhold:
         rootNode = Nodes[0]
         NodeQ = [rootNode]
         c = 0
+        self.HUFF2LAYER = {}
+        self.LAYER2HUFF = {}
+
         while len(NodeQ) > 0:
             tmpNode = NodeQ[0]
+
             NodeQ.pop(0)
             if c %1000==0:
                 print('[INFO] Huffman Build %d'%c)
             if tmpNode.word is not None:
                 self.N2HUFF[tmpNode.word] = tmpNode.huffman
                 continue
+            self.HUFF2LAYER[tmpNode.huffman] = c
+            self.LAYER2HUFF[c] = tmpNode.huffman
             if tmpNode.left is not None:
                 tmpNode.left.huffman = tmpNode.huffman + '0'
                 NodeQ.append(tmpNode.left)
@@ -389,7 +415,7 @@ class DictFreqThreshhold:
                 NodeQ.append(tmpNode.right)
             c+= 1
         meta_file = open('Huffman_dic.json', 'w', encoding='utf-8')
-        json.dump(self.N2HUFF,meta_file)
+        json.dump([self.N2HUFF,self.HUFF2LAYER,self.LAYER2HUFF],meta_file,)
 
 
         # for k in self.N2HUFF:
@@ -771,14 +797,8 @@ if __name__ == '__main__':
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
     dc = DictFreqThreshhold()
-    print(len(dc.N2HUFF))
-    # print(max(dc.N2HUFF, key=lambda k:len(dc.N2HUFF[k])))
-    m = 0
-    for k in dc.N2HUFF:
-        if len(dc.N2HUFF[k])>m:
-            m = len(dc.N2HUFF[k])
-        # print(len(dc.N2HUFF[k]))
-    print(m)
+    print(dc.getHuffmanDict())
+    print(' ')
     # # unit_test()
     # args = sys.argv
     # meta  = Meta( ReadNum=int(args[1])).get_meta()
