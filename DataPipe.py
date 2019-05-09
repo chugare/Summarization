@@ -184,7 +184,8 @@ class DictFreqThreshhold:
 
         self.read_dic()
         self.DictSize = min(len(self.N2GRAM),self.DictSize)
-        # self.HuffmanEncoding()
+        self.HuffmanEncoding()
+        print(max(self.N2HUFF, key=lambda k:len(self.N2HUFF[k])))
     def read_dic(self):
         try:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
@@ -316,6 +317,30 @@ class DictFreqThreshhold:
             else:
                 res[C - i - 1] = title[pos - i - 1]
         return res
+    def getHuffmanDict(self):
+
+        maxHuffLen = max(self.N2HUFF,key=lambda k:len(self.N2HUFF[k]))
+        for k in range(self.DictSize):
+            if k not in self.N2HUFF:
+                continue
+            huffman_str = self.N2HUFF[k]
+            tlen = len(huffman_str)
+            tmphuff = np.zeros(shape=[maxHuffLen],dtype=np.int32)
+            tmplabel = np.zeros(shape=[maxHuffLen],dtype=np.int32)
+            currval = 0
+
+            for i,c in enumerate(huffman_str):
+                if c == '0':
+                    tmphuff[i] = currval
+                    tmplabel[i] = 0
+                    currval = currval * 2 + 1
+
+                if c == '1':
+                    tmphuff[i] = currval
+                    tmplabel[i] = 1
+                    currval = currval * 2 + 2
+            vecl.append(v)
+            labell.append(tmplabel)
     def HuffmanEncoding(self,forceBuild = False):
         class HuffmanNode:
             def __init__(self,val = None,word = None):
@@ -347,9 +372,12 @@ class DictFreqThreshhold:
         self.N2HUFF = {}
         rootNode = Nodes[0]
         NodeQ = [rootNode]
+        c = 0
         while len(NodeQ) > 0:
             tmpNode = NodeQ[0]
             NodeQ.pop(0)
+            if c %1000==0:
+                print('[INFO] Huffman Build %d'%c)
             if tmpNode.word is not None:
                 self.N2HUFF[tmpNode.word] = tmpNode.huffman
                 continue
@@ -359,8 +387,11 @@ class DictFreqThreshhold:
             if tmpNode.right is not None:
                 tmpNode.right.huffman = tmpNode.huffman + '1'
                 NodeQ.append(tmpNode.right)
+            c+= 1
         meta_file = open('Huffman_dic.json', 'w', encoding='utf-8')
         json.dump(self.N2HUFF,meta_file)
+
+
         # for k in self.N2HUFF:
         #     print("%s %d %s"%(self.N2GRAM[k],self.N2FREQ[k],self.N2HUFF[k]))
 
