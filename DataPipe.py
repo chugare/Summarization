@@ -185,7 +185,7 @@ class DictFreqThreshhold:
         self.read_dic()
         self.DictSize = min(len(self.N2GRAM),self.DictSize)
         self.HuffmanEncoding()
-        print(max(self.N2HUFF, key=lambda k:len(self.N2HUFF[k])))
+        # print(max(self.N2HUFF, key=lambda k:len(self.N2HUFF[k])))
     def read_dic(self):
         try:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
@@ -771,6 +771,14 @@ if __name__ == '__main__':
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
     dc = DictFreqThreshhold()
+    print(len(dc.N2HUFF))
+    # print(max(dc.N2HUFF, key=lambda k:len(dc.N2HUFF[k])))
+    m = 0
+    for k in dc.N2HUFF:
+        if len(dc.N2HUFF[k])>m:
+            m = len(dc.N2HUFF[k])
+        # print(len(dc.N2HUFF[k]))
+    print(m)
     # # unit_test()
     # args = sys.argv
     # meta  = Meta( ReadNum=int(args[1])).get_meta()
