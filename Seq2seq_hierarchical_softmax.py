@@ -124,15 +124,16 @@ class Data:
                 wordVec = self.WordVectorMap.get_vec(word)
                 wordVecList.append(wordVec)
                 wordList.append(currentWordId)
-            if len(wordList)>100:
-                wordList = wordList[:100]
-                wordLength  = 100
-            else:
-                I = 100-len(wordList)
-                for i in range(I):
-                    wordList.append(random.randint(0,9999))
-                    wordVecList.append(np.zeros([self.VecSize],np.float32))
-            wordVecList = wordVecList[:100]
+
+            # if len(wordList)>100:
+            #     wordList = wordList[:100]
+            #     wordLength  = 100
+            # else:
+            #     I = 100-len(wordList)
+            #     for i in range(I):
+            #         wordList.append(random.randint(0,9999))
+            #         wordVecList.append(np.zeros([self.VecSize],np.float32))
+            # wordVecList = wordVecList[:100]
             refMap = {}
             refVector = []
             for i, k in enumerate(ref_word):
@@ -143,6 +144,41 @@ class Data:
             # print(len(wordVecList))
             # print(len(refVector))2
             yield wordVecList,refVector,wordList,wordLength
+    class Databatchor:
+        def __init__(self,generator,**kwargs):
+            self.Generator = generator
+            self.SampleQueue = {}
+            self.SampleReadPos = {}
+            self.HiddenUnit = 800
+            self.BatchSize = 64
+            for k in kwargs:
+                self.__setattr__(k,kwargs[k])
+            for i in range(self.BatchSize):
+                self.SampleQueue[i] = None
+                self.SampleReadPos[i] = 0
+        def get_next(self,stateList = None):
+            InWordVecList = []
+            KeyWordVecList = []
+            StateList = []
+            OutWordList = []
+
+            for i in range(self.BatchSize):
+                tmpLength = self.SampleReadPos[i] + 1
+                if self.SampleQueue[i] is None or tmpLength >= self.SampleQueue[i][-1]:
+                    self.SampleQueue[i] = next(self.Generator)
+                    self.SampleReadPos[i] = 0
+                    StateList[i] = np.zeros([2,self.HiddenUnit],dtype=np.float32)
+                else:
+                    self.SampleReadPos[i] = tmpLength
+                    StateList[i] = stateList[i]
+                InWordVecList.append(self.SampleQueue[i][0][tmpLength])
+                KeyWordVecList.append(self.SampleQueue[i][1])
+                OutWordList.append(self.SampleQueue[i][2])
+
+            return InWordVecList,KeyWordVecList,StateList,OutWordList
+
+    def batch_data_state(self):
+
 
     def batch_data(self,batchSize):
         gen = self.pipe_data()
@@ -168,8 +204,9 @@ class Model:
         self.VecSize = 300
         self.HiddenUnit = 800
         self.ContextVec = 400
-        self.WordNum = 20000
+        self.WordNum = 80000
         self.BatchSize = 64
+        self.MaxHuffLength = 17
         self.L2NormValue = 0.02
         self.DropoutProb = 0.7
         self.GlobalNorm = 0.5
@@ -198,131 +235,193 @@ class Model:
         l2_norm = tf.reduce_mean(var**2) * self.L2NormValue
         tf.add_to_collection('l2norm',l2_norm)
         return var
-    def build_model(self,mode):
+    def build_model(self,mode,huffmanMap,huffmanLabel,huffmanLength):
 
-        SentenceVector = tf.placeholder(dtype=tf.float32,
-                                        shape=[self.BatchSize, self.MaxSentenceLength, self.VecSize],
-                                        name='Sequence_Vector')
+        InWordVector = tf.placeholder(dtype=tf.float32,
+                                        shape=[self.BatchSize, self.VecSize],
+                                        name='Word_Vector')
         KeyWordVector = tf.placeholder(dtype=tf.float32, shape=[self.BatchSize, self.KeyWordNum, self.VecSize],
-                                       name='Sequence_Vector')
-        SentenceLength = tf.placeholder(dtype=tf.int32, shape=[self.BatchSize], name="Sentence_Length")
+                                       name='Keyword_Vector')
 
         weightAtten = self.get_variable(name= 'Attention_weight', shape=[self.VecSize,self.VecSize], dtype=tf.float32,
                               initializer=tf.glorot_uniform_initializer())
+
+        WordLabel = tf.placeholder(dtype=tf.int32, shape=[self.BatchSize, self.MaxSentenceLength],
+                                   name="Word_Label")
+
+        globalStep = tf.placeholder(dtype=tf.int32, shape=[], name='GlobalStep')
+        # index  = tf.placeholder(dtype=tf.float32, shape=[self.BatchSize])
+
+        State = tf.placeholder(dtype=tf.float32, shape=[2,self.BatchSize, self.RNNUnitNum])
+
+        stateTuple = tf.nn.rnn_cell.LSTMStateTuple(State[0], State[1])
+
+        outputTA = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
+                                  clear_after_read=False, tensor_array_name='Output_ta')
+        maskTa = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
+                                clear_after_read=False, tensor_array_name='Mask_ta')
+
+        huffmanMap = tf.constant(huffmanMap)
+        huffmanLabel = tf.constant(huffmanLabel)
+        huffmanLength = tf.constant(huffmanLength)
+
         cell = tf.nn.rnn_cell.BasicLSTMCell(num_units=self.RNNUnitNum)
-        def loopOpt(i,state,output,maskTA):
-            lastWord = SentenceVector[:,i]
 
-            q = state[0]
-            k = KeyWordVector
-            q = tf.expand_dims(q, 1)
-            align = tf.tensordot(q, weightAtten, [-1, 0]) * k
-            align = tf.reduce_sum(align, axis=-1)
-            align = tf.nn.softmax(align)
-            align = tf.expand_dims(align, -1)
-            v = align * k
-            v = tf.reduce_sum(v, 1)
-            atten = v
 
-            cellInput = tf.concat([lastWord,atten],axis=-1)
-            mask = tf.cast(tf.greater(SentenceLength,i),dtype=tf.float32)
 
-            maskTA = maskTA.write(i,mask)
-            new_output,new_state = cell(cellInput,state)
-            # new_output = new_output*mask
-            output = output.write(i,new_output)
-            i = i + 1
-            return i,new_state,output,maskTA
+        q = stateTuple[0]
+        k = KeyWordVector
+        q = tf.expand_dims(q, 1)
 
-        outWeight = self.get_variable('OutLayerWeight',shape=[self.RNNUnitNum,self.WordNum],dtype=tf.float32,
+        align = tf.tensordot(q, weightAtten, [-1, 0]) * k
+        align = tf.reduce_sum(align, axis=-1)
+        align = tf.nn.softmax(align)
+        align = tf.expand_dims(align, -1)
+        v = align * k
+        v = tf.reduce_sum(v, 1)
+        atten = v
+
+        cellInput = tf.concat([InWordVector,atten],axis=-1)
+
+        new_output,NewState = cell(cellInput,stateTuple)
+        # new_output = new_output*mask
+
+
+        HuffWeight = self.get_variable('HuffmanWeight',shape=[self.RNNUnitNum,2**self.MaxHuffLength],dtype=tf.float32,
                                       initializer=tf.glorot_uniform_initializer())
+        lossTA = tf.TensorArray(dtype=tf.float32,size=self.BatchSize,name='LOSS_TA')
 
+        precMicro = tf.TensorArray(name='PrecMicro', size=self.BatchSize, dtype=tf.int32)
+        precMacro = tf.TensorArray(name='PrecMacro', size=self.BatchSize, dtype=tf.int32)
+        lsum = tf.constant(0)
+        i = tf.constant(0)
+        def HierHuffLoop(i,lossTa,pmic,pmac,lSum):
+            wordId = WordLabel[i]
+            length = huffmanLength[wordId]
+            indices = huffmanMap[wordId,:length]
+            labels = huffmanLabel[wordId,:length]
+            w = tf.gather(HuffWeight, indices)
+            out = tf.tensordot(new_output[i], w, [0, -1])
+            result = tf.cast(tf.greater(out, 0.5), tf.int32)
+            precAllLevel = tf.cast(tf.equal(result, labels), tf.int32)
+            precRes = tf.reduce_prod(precAllLevel)
+            precAllLevel = tf.reduce_sum(precAllLevel)
+            pmic = pmic.write(i, precAllLevel)
+            pmac = pmac.write(i, precRes)
+            lab = tf.cast(labels, tf.float32)
+            loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=out, labels=lab)
+            loss = tf.reduce_sum(loss)
+            lossTa = lossTa.write(i, loss)
+            lSum  = lSum + length
+            i = i+1
+            return i,lossTa,pmic,pmac,lSum
 
-        if mode == 'train':
-            WordLabel = tf.placeholder(dtype=tf.int32, shape=[self.BatchSize, self.MaxSentenceLength],
-                                       name="Word_Label")
+        _, lossTA, precMicro, precMacro,lsum = tf.while_loop(lambda i, *_: i < self.BatchSize,
+                                                        HierHuffLoop, [i, lossTA, precMicro, precMacro,lsum])
 
-            globalStep = tf.placeholder(dtype=tf.int32, shape=[], name='GlobalStep')
-            WordLabelOH = tf.one_hot(WordLabel, self.WordNum)
-            initState = cell.zero_state(batch_size=self.BatchSize, dtype=tf.float32)
-            outputTA = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
-                                      clear_after_read=False, tensor_array_name='Output_ta')
-            maskTa = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
-                                    clear_after_read=False, tensor_array_name='Mask_ta')
+        precMac = tf.reduce_mean(tf.cast(precMacro.stack(),tf.float32))
+        precMic = tf.reduce_sum(tf.cast(precMicro.stack(),tf.float32))/lsum
 
-            i = tf.constant(0, dtype=tf.int32)
-            _,finalState,outputTA,maskTa = tf.while_loop(lambda i,*_: i<self.MaxSentenceLength,
-                                                         loopOpt,[i,initState,outputTA,maskTa])
-            outputTensor = outputTA.stack()
-            outputTensor = tf.transpose(outputTensor,[1,0,2])
-            maskTensor = maskTa.stack()
-            maskTensor = tf.transpose(maskTensor,[1,0])
-            res = tf.tensordot(outputTensor,outWeight,[-1,0])
-            # res = tf.nn.l2_normalize(res,axis=-1)
-            pred = tf.argmax(res,-1)
-            pred = tf.cast(pred,tf.int32)
-            correct = tf.cast(tf.equal(pred,WordLabel),tf.float32)
-            correct = correct * maskTensor
-            sample_count = tf.reduce_sum(maskTensor)
-            prec = (tf.cast(tf.reduce_sum(correct),dtype=tf.float32))/sample_count
-            lr_p = tf.log(tf.cast(globalStep+1, tf.float32))
-            lr_tmp = (1/ (lr_p+1)) * self.LearningRate
-            loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=res,labels=WordLabelOH,name='CrossEntropy')
-            finalLoss = loss*maskTensor
-            omega = tf.add_n(tf.get_collection('l2norm'))
-            finalLoss = tf.reduce_sum(finalLoss)/tf.reduce_sum(maskTensor) + omega
-            tf.summary.scalar('Loss',finalLoss)
-            optimizer = tf.train.AdamOptimizer(learning_rate=lr_tmp)
-            grads = optimizer.compute_gradients(loss)
-            for grad, var in grads:
-                tf.summary.histogram(var.name + '/gradient', grad)
-            grad, var = zip(*grads)
-            tf.clip_by_global_norm(grad, self.GlobalNorm)
-            grads = zip(grad, var)
-            merge = tf.summary.merge_all()
-            train = optimizer.apply_gradients(grads)
-            ops = {
-                'SentenceVector':SentenceVector,
-                'KeyWordVector':KeyWordVector,
-                'WordLabel':WordLabel,
-                'SentenceLength':SentenceLength,
-                'GlobalStep':globalStep,
-                'train':train,
-                'loss':finalLoss,
-                'maskTensor':maskTensor,
-                'precision':prec,
-                'merge':merge,
-            }
-        else:
-            initState = cell.zero_state(batch_size=self.BatchSize, dtype=tf.float32)
+        lr_p = tf.log(tf.cast(globalStep + 1, tf.float32))
+        lr_tmp = (1 / (lr_p + 1)) * self.LearningRate
+        loss_sum = tf.reduce_mean(lossTA.stack())
+        omega = tf.add_n(tf.get_collection('l2norm'))
 
-            i = tf.placeholder(dtype=tf.float32,shape=[])
-
-
-            state = tf.placeholder(dtype=tf.float32,shape = [self.BatchSize,2,self.RNNUnitNum])
-            stateTuple = tf.nn.rnn_cell.LSTMStateTuple(state[:,0],state[:,1])
-            runState = tf.cond(tf.equal(i,0), lambda: initState, lambda: stateTuple)
-
-            outputTA = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
-                                      clear_after_read=False, tensor_array_name='Output_ta')
-            maskTa = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
-                                    clear_after_read=False, tensor_array_name='Mask_ta')
-
-            _,new_state,outputTA,maskTa =  loopOpt(0,runState,outputTA,maskTa)
-            outputTensor = outputTA.stack()
-            outputTensor = tf.transpose(outputTensor, [1, 0, 2])
-            res = tf.tensordot(outputTensor,outWeight,[-1,0])
-            # new_output = new_output*mask
-            res = tf.squeeze(res)
-            resProb = tf.nn.softmax(res)
-            ops = {
-                'SentenceVector': SentenceVector,
-                'KeyWordVector': KeyWordVector,
-                'oldState':state,
-                'newState':new_state,
-                'i':i,
-                'resProb':resProb,
-            }
+        finalLoss = loss_sum + omega
+        tf.summary.scalar('Loss', finalLoss)
+        optimizer = tf.train.AdamOptimizer(learning_rate=lr_tmp)
+        grads = optimizer.compute_gradients(finalLoss)
+        for grad, var in grads:
+            tf.summary.histogram(var.name + '/gradient', grad)
+        grad, var = zip(*grads)
+        tf.clip_by_global_norm(grad, self.GlobalNorm)
+        grads = zip(grad, var)
+        merge = tf.summary.merge_all()
+        train = optimizer.apply_gradients(grads)
+        ops = {
+            'InWordVector': InWordVector,
+            'KeyWordVector': KeyWordVector,
+            'WordLabel': WordLabel,
+            'State':State,
+            'GlobalStep': globalStep,
+            'train': train,
+            'NewState':NewState,
+            'loss': finalLoss,
+            'precMac': precMac,
+            'precMic': precMic,
+            'merge': merge,
+        }
+        # if mode == 'train':
+        #     WordLabel = tf.placeholder(dtype=tf.int32, shape=[self.BatchSize, self.MaxSentenceLength],
+        #                                name="Word_Label")
+        #
+        #     globalStep = tf.placeholder(dtype=tf.int32, shape=[], name='GlobalStep')
+        #     WordLabelOH = tf.one_hot(WordLabel, self.WordNum)
+        #     initState = cell.zero_state(batch_size=self.BatchSize, dtype=tf.float32)
+        #     outputTA = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
+        #                               clear_after_read=False, tensor_array_name='Output_ta')
+        #     maskTa = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
+        #                             clear_after_read=False, tensor_array_name='Mask_ta')
+        #
+        #     i = tf.constant(0, dtype=tf.int32)
+        #     _,finalState,outputTA,maskTa = tf.while_loop(lambda i,*_: i<self.MaxSentenceLength,
+        #                                                  loopOpt,[i,initState,outputTA,maskTa])
+        #     outputTensor = outputTA.stack()
+        #     outputTensor = tf.transpose(outputTensor,[1,0,2])
+        #     maskTensor = maskTa.stack()
+        #     maskTensor = tf.transpose(maskTensor,[1,0])
+        #     res = tf.tensordot(outputTensor,outWeight,[-1,0])
+        #     # res = tf.nn.l2_normalize(res,axis=-1)
+        #     pred = tf.argmax(res,-1)
+        #     pred = tf.cast(pred,tf.int32)
+        #     correct = tf.cast(tf.equal(pred,WordLabel),tf.float32)
+        #     correct = correct * maskTensor
+        #     sample_count = tf.reduce_sum(maskTensor)
+        #     prec = (tf.cast(tf.reduce_sum(correct),dtype=tf.float32))/sample_count
+        #
+        #     loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=res,labels=WordLabelOH,name='CrossEntropy')
+        #     finalLoss = loss*maskTensor
+        #     omega = tf.add_n(tf.get_collection('l2norm'))
+        #     finalLoss = tf.reduce_sum(finalLoss)/tf.reduce_sum(maskTensor) + omega
+        #     tf.summary.scalar('Loss',finalLoss)
+        #     optimizer = tf.train.AdamOptimizer(learning_rate=lr_tmp)
+        #     grads = optimizer.compute_gradients(loss)
+        #     for grad, var in grads:
+        #         tf.summary.histogram(var.name + '/gradient', grad)
+        #     grad, var = zip(*grads)
+        #     tf.clip_by_global_norm(grad, self.GlobalNorm)
+        #     grads = zip(grad, var)
+        #     merge = tf.summary.merge_all()
+        #     train = optimizer.apply_gradients(grads)
+        #     ops = {
+        #         'SentenceVector':SentenceVector,
+        #         'KeyWordVector':KeyWordVector,
+        #         'WordLabel':WordLabel,
+        #         'SentenceLength':SentenceLength,
+        #         'GlobalStep':globalStep,
+        #         'train':train,
+        #         'loss':finalLoss,
+        #         'maskTensor':maskTensor,
+        #         'precision':prec,
+        #         'merge':merge,
+        #     }
+        # else:
+        #
+        #     _,new_state,outputTA,maskTa =  loopOpt(0,runState,outputTA,maskTa)
+        #     outputTensor = outputTA.stack()
+        #     outputTensor = tf.transpose(outputTensor, [1, 0, 2])
+        #     res = tf.tensordot(outputTensor,outWeight,[-1,0])
+        #     # new_output = new_output*mask
+        #     res = tf.squeeze(res)
+        #     resProb = tf.nn.softmax(res)
+        #     ops = {
+        #         'SentenceVector': SentenceVector,
+        #         'KeyWordVector': KeyWordVector,
+        #         'oldState':state,
+        #         'newState':new_state,
+        #         'i':i,
+        #         'resProb':resProb,
+        #     }
 
         return ops
 
