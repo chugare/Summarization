@@ -271,10 +271,10 @@ class Tf_idf:
             dic_file = open(dic,'r',encoding='utf-8')
             for line in dic_file:
                 wd = line.split(' ')
-                self.GRAM2N[wd[0]] = int(wd[1].strip())
-                self.N2GRAM[int(wd[1].strip())] = wd[0]
-                self.idf[wd[0]] = 0.0
-            ga = Tf_idf.read_doc_all(doc_file)
+                self.GRAM2N[wd[1]] = int(wd[0].strip())
+                self.N2GRAM[int(wd[0].strip())] = wd[1]
+                self.idf[wd[1]] = 0.0
+            ga = self.read_doc_all()
             self.idf_calc(ga)
             _data_file = open('_tfidf_meta.json','w',encoding='utf-8')
             obj = {
@@ -324,11 +324,11 @@ class Tf_idf:
             w = self.N2GRAM[vt_l[i][0]]
             res.append(w)
         return  res
-
     def read_doc_all(self):
         file_all = open(self.FileName,'r',encoding='utf-8')
         for line in file_all:
             yield line.strip().split(' ')
+
     @staticmethod
     def read_doc_case(fname):
         file_all = open(fname,'r',encoding='utf-8')
@@ -345,4 +345,4 @@ if __name__ == '__main__':
         XML2TXT_extract(fileName)
 
     elif mod == '-tf':
-        tfidf = Tf_idf('DP_comma.txt')
+        tfidf = Tf_idf(dic='DP_comma_DICT.txt',doc_file='DP_comma.txt')

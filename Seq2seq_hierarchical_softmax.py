@@ -544,8 +544,10 @@ if __name__ == '__main__':
     args = sys.argv
 
 
-
-
+    dp = Data().pipe_data()
+    db = Data.Databatchor(dp)
+    for i in range(10):
+        print(db.get_next())
     if len(args)>1:
         meta = Meta(TaskName='DP_s2s_hierarchacal', BatchSize=128,
                          ReadNum=int(args[1]),
