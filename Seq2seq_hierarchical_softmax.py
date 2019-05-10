@@ -368,7 +368,6 @@ class Main:
         dataPipe = Data(**kwargs)
         huffTable, huffLabelTable, huffLenTable = dataPipe.Dict.getHuffmanDict()
         model = Model(**kwargs)
-        print(huffTable)
         ops = model.build_model('train',huffTable,huffLabelTable,huffLenTable)
         initOp = tf.initialize_all_variables()
 
@@ -551,15 +550,15 @@ if __name__ == '__main__':
 
     if len(args)>1:
         meta = Meta(TaskName='DP_s2s_hierarchacal', BatchSize=128,
-                         ReadNum=int(args[1]),
-                         WordNum = int(args[2]),
-                         LearningRate=0.001,
-                         EpochSize = int(args[3]),
+                         ReadNum=int(args[1])*1000,
+                         WordNum = 80000,
+                         LearningRate=float(args[2]),
+                         EpochSize = 10000,
                          SourceFile='DP_comma.txt',
                          DictName="DP_comma_DICT.txt").get_meta()
-        if args[4] == 't':
+        if args[3] == 't':
             Main().run_train(**meta)
-        elif args[4] == 'v':
+        elif args[3] == 'v':
             meta['SourceFile'] = 'E_'+meta['SourceFile']
             meta['BatchSize'] = 1
             meta['MaxSentenceLength'] = 1
