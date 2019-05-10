@@ -375,13 +375,13 @@ class DictFreqThreshhold:
         return huffTable,huffLabelTable,huffLenTable
     def read_word_from_Huffman(self,layersValues):
         np = 0
-        encoding
+        encoding = ''
         try:
             while True:
-
+                pass
 
         except KeyError:
-
+            pass
     def HuffmanEncoding(self,forceBuild = False):
         class HuffmanNode:
             def __init__(self,val = None,word = None):
