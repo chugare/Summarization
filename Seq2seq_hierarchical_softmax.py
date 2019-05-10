@@ -405,8 +405,8 @@ class Main:
             if checkpoint:
                 saver.restore(sess, checkpoint)
                 print('[INFO] 从上一次的检查点:\t%s开始继续训练任务' % checkpoint)
-                start_epoch += int(checkpoint.split('-')[-1])
-                global_step += int(checkpoint.split('-')[-2])
+                start_epoch += int(checkpoint.split('-')[-2])
+                global_step += int(checkpoint.split('-')[-1])
             else:
                 sess.run(initOp)
             start_time = time.time()
@@ -566,7 +566,7 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DP_s2s_hierarchacal',BatchSize = 128 ,ReadNum = 800000,
+        meta = Meta(TaskName = 'DP_s2s_hierarchacal',BatchSize = 128 ,ReadNum = 8000,
                          LearningRate = 0.01,
                          SourceFile='DP_comma.txt',
                          DictName = "DP_comma_DICT.txt").get_meta()
