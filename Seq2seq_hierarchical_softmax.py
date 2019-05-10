@@ -115,7 +115,7 @@ class Data:
             wordVecList = []
             wordVecList.append(np.zeros([self.VecSize],np.float32))
             wordList = []
-            wordLength = len(words)
+
             ref_word = self.get_key_word(words, self.KeyWordNum)
             ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_word}
             for word in words:
@@ -148,7 +148,7 @@ class Data:
                 refVector.append(np.zeros([self.VecSize]))
             # print(len(wordVecList))
             # print(len(refVector))2
-            yield wordVecList,refVector,wordList,wordLength
+            yield wordVecList,refVector,wordList,len(wordList)
     class Databatchor:
         def __init__(self,generator,**kwargs):
             self.Generator = generator
@@ -175,6 +175,7 @@ class Data:
                     self.SampleQueue[i] = next(self.Generator)
                     self.SampleReadPos[i] = 0
                     StateList[i] = np.zeros([2,self.RNNUnitNum],dtype=np.float32)
+                    tmpLength = 0
                 else:
                     self.SampleReadPos[i] = tmpLength
                     StateList[i] = stateList[:,i,:]
@@ -317,43 +318,47 @@ class Model:
             lSum  = lSum + length
             i = i+1
             return i,lossTa,pmic,pmac,lSum
+        if mode == 'train':
+            _, lossTA, precMicro, precMacro,lsum = tf.while_loop(lambda i, *_: i < self.BatchSize,
+                                                            HierHuffLoop, [i, lossTA, precMicro, precMacro,lsum])
+            lsum = tf.cast(lsum,dtype=tf.float32)
+            precMac = tf.reduce_mean(tf.cast(precMacro.stack(),tf.float32))
+            precMic = tf.cast(precMicro.stack(),tf.float32)
+            precMic = tf.reduce_sum(precMic)/lsum
 
-        _, lossTA, precMicro, precMacro,lsum = tf.while_loop(lambda i, *_: i < self.BatchSize,
-                                                        HierHuffLoop, [i, lossTA, precMicro, precMacro,lsum])
-        lsum = tf.cast(lsum,dtype=tf.float32)
-        precMac = tf.reduce_mean(tf.cast(precMacro.stack(),tf.float32))
-        precMic = tf.cast(precMicro.stack(),tf.float32)
-        precMic = tf.reduce_sum(precMic)/lsum
 
-        lr_p = tf.log(tf.cast(globalStep + 1, tf.float32))
-        lr_tmp = (1 / (lr_p + 1)) * self.LearningRate
-        loss_sum = tf.reduce_mean(lossTA.stack())
-        omega = tf.add_n(tf.get_collection('l2norm'))
 
-        finalLoss = loss_sum + omega
-        tf.summary.scalar('Loss', finalLoss)
-        optimizer = tf.train.AdamOptimizer(learning_rate=lr_tmp)
-        grads = optimizer.compute_gradients(finalLoss)
-        for grad, var in grads:
-            tf.summary.histogram(var.name + '/gradient', grad)
-        grad, var = zip(*grads)
-        tf.clip_by_global_norm(grad, self.GlobalNorm)
-        grads = zip(grad, var)
-        merge = tf.summary.merge_all()
-        train = optimizer.apply_gradients(grads)
-        ops = {
-            'InWordVector': InWordVector,
-            'KeyWordVector': KeyWordVector,
-            'WordLabel': WordLabel,
-            'State':State,
-            'GlobalStep': globalStep,
-            'train': train,
-            'NewState':NewState,
-            'loss': finalLoss,
-            'precMac': precMac,
-            'precMic': precMic,
-            'merge': merge,
-        }
+            lr_p = tf.log(tf.cast(globalStep + 1, tf.float32))
+            lr_tmp = (1 / (lr_p + 1)) * self.LearningRate
+            loss_sum = tf.reduce_mean(lossTA.stack())
+            omega = tf.add_n(tf.get_collection('l2norm'))
+
+            finalLoss = loss_sum + omega
+            tf.summary.scalar('Loss', finalLoss)
+            optimizer = tf.train.AdamOptimizer(learning_rate=lr_tmp)
+            grads = optimizer.compute_gradients(finalLoss)
+            for grad, var in grads:
+                tf.summary.histogram(var.name + '/gradient', grad)
+            grad, var = zip(*grads)
+            tf.clip_by_global_norm(grad, self.GlobalNorm)
+            grads = zip(grad, var)
+            merge = tf.summary.merge_all()
+            train = optimizer.apply_gradients(grads)
+            ops = {
+                'InWordVector': InWordVector,
+                'KeyWordVector': KeyWordVector,
+                'WordLabel': WordLabel,
+                'State':State,
+                'GlobalStep': globalStep,
+                'train': train,
+                'NewState':NewState,
+                'loss': finalLoss,
+                'precMac': precMac,
+                'precMic': precMic,
+                'merge': merge,
+            }
+        else:
+            ops={}
 
         return ops
 
