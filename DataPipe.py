@@ -225,6 +225,20 @@ class DictFreqThreshhold:
             print('[INFO] 未发现对应的*_DIC.txt文件，需要先初始化，初始化完毕之后重新运行程序即可')
             return
         print('[INFO] 字典初始化完毕，共计单词%d个'%len(self.N2GRAM))
+    def dictReformat(self):
+        size = len(self.N2GRAM)
+        # newDic = []
+        tmp_dic = open('tmp_dic.txt','w',encoding='utf-8')
+        count = 0
+        for k in self.N2GRAM:
+
+            w = self.N2GRAM[k]
+            if w in self.ULSW:
+                continue
+            f = self.N2WF[k]
+            freq = self.N2FREQ[k]
+            tmp_dic.write('%d %s %s %d\n'%(count,w,f,freq))
+            count += 1
     def doc2bow(self,doc):
         if isinstance(doc,list):
             wordSet = doc
@@ -797,7 +811,8 @@ if __name__ == '__main__':
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
     dc = DictFreqThreshhold()
-    dc.getHuffmanDict()
+
+    dc.dictReformat()
     print(' ')
     # # unit_test()
     # args = sys.argv
