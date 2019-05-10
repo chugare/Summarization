@@ -262,7 +262,7 @@ class Tf_idf:
             _data_file = open('_tfidf_meta.json','r',encoding='utf-8')
             _data_t = json.load(_data_file)
             self.GRAM2N = _data_t['G']
-            self.N2GRAM = _data_t['N']
+            self.N2GRAM = {int(k):_data_t['N'][k] for k in _data_t['N']}
             self.idf = _data_t['I']
         except Exception:
             if dic is None or doc_file is None:
@@ -305,23 +305,29 @@ class Tf_idf:
             self.idf[w] = math.log(doc_num/(self.idf[w]+1))
         print('[INFO] All idf value have been calculated')
     def tf_calc(self,sen):
-        tf = np.zeros(shape=[len(self.N2GRAM)])
-        tf_idf = np.zeros(shape=[len(self.N2GRAM)])
+        # tf = np.zeros(shape=[len(self.N2GRAM)])
+        tf = {}
         l = len(sen)
         for word in sen:
-            if word in self.GRAM2N:
-                tf[self.GRAM2N[word]] = (tf[self.GRAM2N[word]]+1)
-                tf_idf[self.GRAM2N[word]] = tf[self.GRAM2N[word]]*self.idf[word]/l
-
+            # wid = self.GRAM2N[word]
+            if word not in tf:
+                tf[word] = 0.0
+            tf[word] = (tf[word]+1.0)
+        tf_idf = {}
+        for k in tf:
+            try:
+                tf_idf[k] = tf[k]/self.idf[k]
+            except KeyError:
+                pass
         return  tf_idf
     def get_top_word(self,vec_l,k):
         vt_l = []
-        for i in range(len(vec_l)):
+        for i in vec_l:
             vt_l.append((i,vec_l[i]))
         vt_l.sort(key=lambda x:x[1],reverse=True)
         res = []
         for i in range(k):
-            w = self.N2GRAM[vt_l[i][0]]
+            w = vt_l[i][0]
             res.append(w)
         return  res
     def read_doc_all(self):

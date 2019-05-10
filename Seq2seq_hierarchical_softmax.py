@@ -165,10 +165,13 @@ class Data:
             InWordVecList = []
             KeyWordVecList = []
             StateList = [np.zeros([2,self.RNNUnitNum],dtype=np.float32)] *self.BatchSize
+
             OutWordList = []
             for i in range(self.BatchSize):
                 tmpLength = self.SampleReadPos[i] + 1
-                if self.SampleQueue[i] is None or tmpLength >= self.SampleQueue[i][-1]:
+                if self.SampleQueue[i] is None or \
+                        tmpLength >= self.SampleQueue[i][-1] or \
+                        stateList is None:
                     self.SampleQueue[i] = next(self.Generator)
                     self.SampleReadPos[i] = 0
                     StateList[i] = np.zeros([2,self.RNNUnitNum],dtype=np.float32)
@@ -544,10 +547,7 @@ if __name__ == '__main__':
     args = sys.argv
 
 
-    dp = Data().pipe_data()
-    db = Data.Databatchor(dp)
-    for i in range(10):
-        print(db.get_next())
+
     if len(args)>1:
         meta = Meta(TaskName='DP_s2s_hierarchacal', BatchSize=128,
                          ReadNum=int(args[1]),
@@ -570,4 +570,9 @@ if __name__ == '__main__':
                          LearningRate = 0.01,
                          SourceFile='DP_comma.txt',
                          DictName = "DP_comma_DICT.txt").get_meta()
+        # dp = Data(**meta).pipe_data()
+        # db = Data.Databatchor(dp)
+        #
+        # for i in range(10):
+        #     print(db.get_next())
         Main().run_train(**meta)

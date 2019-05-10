@@ -811,8 +811,8 @@ if __name__ == '__main__':
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
     dc = DictFreqThreshhold()
-
-    dc.dictReformat()
+    dc.HuffmanEncoding()
+    dc.getHuffmanDict()
     print(' ')
     # # unit_test()
     # args = sys.argv
