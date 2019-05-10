@@ -368,6 +368,7 @@ class Main:
         dataPipe = Data(**kwargs)
         huffTable, huffLabelTable, huffLenTable = dataPipe.Dict.getHuffmanDict()
         model = Model(**kwargs)
+        print(huffTable)
         ops = model.build_model('train',huffTable,huffLabelTable,huffLenTable)
         initOp = tf.initialize_all_variables()
 
