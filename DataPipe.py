@@ -333,7 +333,7 @@ class DictFreqThreshhold:
         return res
     def getHuffmanDict(self):
         maxHuffLen = len(self.N2HUFF[max(self.N2HUFF,key=lambda k:len(self.N2HUFF[k]))])
-
+        print('Max Huff Len: %d'%maxHuffLen)
         try:
             meta_file = open('Huffman_Layer.json','r',encoding='utf-8')
             jsdata = json.load(meta_file)
@@ -341,7 +341,7 @@ class DictFreqThreshhold:
             huffTable = jsdata[0]
             huffLabelTable = jsdata[1]
             huffLenTable = jsdata[2]
-            print('[INFO] Huffman Layer Data has been readed')
+            print('[INFO] Huffman Layer Data has been read')
             return huffTable,huffLabelTable,huffLenTable
         except Exception:
             pass
@@ -810,8 +810,8 @@ if __name__ == '__main__':
     def t1():
         dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
 
-    dc = DictFreqThreshhold()
-    dc.HuffmanEncoding()
+    dc = DictFreqThreshhold(ReadNum = 10)
+    # dc.HuffmanEncoding()
     dc.getHuffmanDict()
     print(' ')
     # # unit_test()
