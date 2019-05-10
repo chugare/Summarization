@@ -373,6 +373,14 @@ class DictFreqThreshhold:
         meta_file = open('Huffman_Layer.json','w',encoding='utf-8')
         json.dump([huffTable,huffLabelTable,huffLenTable],meta_file)
         return huffTable,huffLabelTable,huffLenTable
+    def read_word_from_Huffman(self,layersValues):
+        np = 0
+        encoding
+        try:
+            while True:
+
+
+        except KeyError:
 
     def HuffmanEncoding(self,forceBuild = False):
         class HuffmanNode:
@@ -386,7 +394,7 @@ class DictFreqThreshhold:
         if not forceBuild:
             try:
                 meta_file = open('Huffman_dic.json','r',encoding='utf-8')
-                self.N2HUFF,self.HUFF2LAYER,self.LAYER2HUFF = json.load(meta_file)
+                self.N2HUFF,self.HUFF2N,self.HUFF2LAYER,self.LAYER2HUFF = json.load(meta_file)
                 print('[INFO] Huffman dictionary has been readed')
                 return
             except Exception:
@@ -404,6 +412,7 @@ class DictFreqThreshhold:
             Nodes.pop(-1)
             Nodes.append(tmpNode)
         self.N2HUFF = {}
+        self.HUFF2N = {}
         rootNode = Nodes[0]
         NodeQ = [rootNode]
         c = 0
@@ -418,6 +427,7 @@ class DictFreqThreshhold:
                 print('[INFO] Huffman Build %d'%c)
             if tmpNode.word is not None:
                 self.N2HUFF[tmpNode.word] = tmpNode.huffman
+                self.HUFF2N[tmpNode.huffman] = tmpNode.word
                 continue
             self.HUFF2LAYER[tmpNode.huffman] = c
             self.LAYER2HUFF[c] = tmpNode.huffman
@@ -429,7 +439,7 @@ class DictFreqThreshhold:
                 NodeQ.append(tmpNode.right)
             c+= 1
         meta_file = open('Huffman_dic.json', 'w', encoding='utf-8')
-        json.dump([self.N2HUFF,self.HUFF2LAYER,self.LAYER2HUFF],meta_file,)
+        json.dump([self.N2HUFF,self.HUFF2N,self.HUFF2LAYER,self.LAYER2HUFF],meta_file)
 
 
         # for k in self.N2HUFF:
