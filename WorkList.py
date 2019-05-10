@@ -3,7 +3,7 @@ from Meta import  Meta
 import Tool,DataPipe,Seq2seq_hierarchical_softmax
 
 
-meta  = Meta( ReadNum= 800000 ).get_meta()
+meta  = Meta( ReadNum= 80).get_meta()
 dc = DataPipe.DictFreqThreshhold(**meta)
 # dc.HuffmanEncoding(**meta)
 dc.getHuffmanDict()
