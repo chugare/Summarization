@@ -4,6 +4,7 @@ import sys
 import re
 import jieba
 import jieba.posseg as pseg
+import numpy as np
 import math
 import json
 import random
@@ -251,12 +252,97 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     ll = sorted(length_map.keys(),key = lambda x:x)
     for k in ll:
         print("k = %d : %d"%(k,length_map[k]))
+class Tf_idf:
+    def __init__(self,dic=None,doc_file=None):
+        self.GRAM2N = {}
+        self.N2GRAM = {}
+        self.idf = {}
+        self.FileName = doc_file
+        try:
+            _data_file = open('_tfidf_meta.json','r',encoding='utf-8')
+            _data_t = json.load(_data_file)
+            self.GRAM2N = _data_t['G']
+            self.N2GRAM = _data_t['N']
+            self.idf = _data_t['I']
+        except Exception:
+            if dic is None or doc_file is None:
+                print('[ERROR] Require data file to initialize')
+                return
+            dic_file = open(dic,'r',encoding='utf-8')
+            for line in dic_file:
+                wd = line.split(' ')
+                self.GRAM2N[wd[0]] = int(wd[1].strip())
+                self.N2GRAM[int(wd[1].strip())] = wd[0]
+                self.idf[wd[0]] = 0.0
+            ga = Tf_idf.read_doc_all(doc_file)
+            self.idf_calc(ga)
+            _data_file = open('_tfidf_meta.json','w',encoding='utf-8')
+            obj = {
+                'G':self.GRAM2N,
+                'N':self.N2GRAM,
+                'I':self.idf
+            }
+            json.dump(obj,_data_file,ensure_ascii=False)
+
+    def idf_calc(self,doc_gen):
+        # doc_data = json.load(self.doc_file)
+        doc_num = 0.0
+        print('[INFO] Start calc idf')
+        for doc in doc_gen:
+            tmp_idf = {}
+            doc_num+=1
+            for w in doc:
+                if w not in tmp_idf:
+                    tmp_idf[w] = 1
+
+            for w in tmp_idf:
+                if w in self.idf:
+                    self.idf[w] += 1
+            if int(doc_num) % 100 == 0:
+                print('[INFO] %d of doc read'%doc_num)
+        print('[INFO] All docs have been read')
+        for w in self.idf:
+            self.idf[w] = math.log(doc_num/(self.idf[w]+1))
+        print('[INFO] All idf value have been calculated')
+    def tf_calc(self,sen):
+        tf = np.zeros(shape=[len(self.N2GRAM)])
+        tf_idf = np.zeros(shape=[len(self.N2GRAM)])
+        l = len(sen)
+        for word in sen:
+            if word in self.GRAM2N:
+                tf[self.GRAM2N[word]] = (tf[self.GRAM2N[word]]+1)
+                tf_idf[self.GRAM2N[word]] = tf[self.GRAM2N[word]]*self.idf[word]/l
+
+        return  tf_idf
+    def get_top_word(self,vec_l,k):
+        vt_l = []
+        for i in range(len(vec_l)):
+            vt_l.append((i,vec_l[i]))
+        vt_l.sort(key=lambda x:x[1],reverse=True)
+        res = []
+        for i in range(k):
+            w = self.N2GRAM[vt_l[i][0]]
+            res.append(w)
+        return  res
+
+    def read_doc_all(self):
+        file_all = open(self.FileName,'r',encoding='utf-8')
+        for line in file_all:
+            yield line.strip().split(' ')
+    @staticmethod
+    def read_doc_case(fname):
+        file_all = open(fname,'r',encoding='utf-8')
+        data_all = json.load(file_all)
+
 if __name__ == '__main__':
     arg = sys.argv
     mod = arg[1]
     fileName = arg[2]
     if mod == '-t':
-        TXT2TXT_extract(fileName,"DP_comma",testCase = -1
+        TXT2TXT_extract(fileName,"DP_comma",testCase = 801000
                         )
     elif mod == '-x':
         XML2TXT_extract(fileName)
+
+    elif mod == '-tf':
+        tfidf = Tf_idf('DP_comma.txt')
