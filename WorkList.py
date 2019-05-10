@@ -3,7 +3,10 @@ from Meta import  Meta
 import Tool,DataPipe,Seq2seq_hierarchical_softmax
 
 
-meta  = Meta( ReadNum= 80).get_meta()
+meta  = Meta( ReadNum= 80,TaskName = 'DP_s2s_hierarchacal',
+                         LearningRate = 0.005,
+                         SourceFile='DP_comma.txt',
+                         DictName = "DP_comma_DICT.txt").get_meta()
 dc = DataPipe.DictFreqThreshhold(**meta)
 # dc.HuffmanEncoding(**meta)
 dc.getHuffmanDict()
