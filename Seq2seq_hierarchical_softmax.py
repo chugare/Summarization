@@ -417,7 +417,7 @@ class Main:
             start_time = time.time()
             # 开始训练
 
-            for i in range(start_epoch, epoch):
+            for e in range(start_epoch, epoch):
                 inputPipe = dataPipe.pipe_data()
                 dataBatchor = Data.Databatchor(inputPipe,**kwargs)
 
@@ -458,16 +458,16 @@ class Main:
                             logging.exception(e)
                             print("[INFO] 因为程序错误停止训练，开始保存模型")
                             saver.save(sess, os.path.join(checkpoint_dir,
-                                                          kwargs['TaskName'] + '_summary-' + str(global_step)),
-                                       global_step=i)
+                                                          kwargs['TaskName'] + '_summary-' + str(e)),
+                                       global_step=global_step)
 
                     print("[INFO] Epoch %d 结束，现在开始保存模型..." % i)
-                    saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(global_step)),
-                               global_step=i)
+                    saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(e)),
+                               global_step=global_step)
                 except KeyboardInterrupt:
                     print("[INFO] 强行停止训练，开始保存模型")
-                    saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(global_step)),
-                               global_step=i)
+                    saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(e)),
+                               global_step=global_step)
                     break
 
     def run_eval(self,**kwargs):
