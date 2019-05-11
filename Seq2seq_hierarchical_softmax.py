@@ -571,7 +571,7 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DP_s2s_hierarchacal',BatchSize = 128 ,ReadNum = 8000,
+        meta = Meta(TaskName = 'DP_s2s_hierarchacal',BatchSize = 256 ,ReadNum = 8000,
                          LearningRate = 0.01,
                          SourceFile='DP_comma.txt',
                          DictName = "DP_comma_DICT.txt").get_meta()
