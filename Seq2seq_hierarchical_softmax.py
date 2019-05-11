@@ -84,7 +84,9 @@ class Data:
     def get_key_word(self,line,num):
 
             tfvec = self.TF_IDF.tf_calc(line)
-            res = self.TF_IDF.get_top_word(tfvec,5)
+            if len(tfvec<self.KeyWordNum):
+                print(tfvec)
+            res = self.TF_IDF.get_top_word(tfvec,self.KeyWordNum)
             return res
     def get_word_mat(self):
         wordNum = self.Dict.DictSize

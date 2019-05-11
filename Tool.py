@@ -331,8 +331,8 @@ class Tf_idf:
                 w = vt_l[i][0]
                 res.append(w)
             except IndexError:
-                print(vt_l)
-                print('')
+                # print(vt_l)
+                # print('')
                 res.append(0)
         return  res
     def read_doc_all(self):
