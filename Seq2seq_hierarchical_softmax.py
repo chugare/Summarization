@@ -577,5 +577,5 @@ if __name__ == '__main__':
                          DictName = "DP_comma_DICT.txt").get_meta()
         dp = Data(**meta).pipe_data()
         for i in dp:
-            print([len(j) for j in i])
+            print("%d %d %d %d"%(len(i[0]),len(i[1]),len(i[2]),i[3]))
         # Main().run_train(**meta)
