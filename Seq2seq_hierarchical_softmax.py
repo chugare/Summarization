@@ -84,8 +84,10 @@ class Data:
     def get_key_word(self,line,num):
 
             tfvec = self.TF_IDF.tf_calc(line)
-            if len(tfvec<self.KeyWordNum):
+            if len(tfvec)<self.KeyWordNum:
                 print(tfvec)
+                print(line)
+                print('')
             res = self.TF_IDF.get_top_word(tfvec,self.KeyWordNum)
             return res
     def get_word_mat(self):
