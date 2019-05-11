@@ -534,6 +534,7 @@ class Main:
                                               ops['oldState']: state,
 
                                           })
+
                         maxID = np.argmax(prob)
                         genWord = dataPipe.Dict.N2GRAM[maxID]
                         SentenceVector = dataPipe.WordVectorMap.get_vec(genWord)
