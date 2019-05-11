@@ -14,23 +14,18 @@ class Meta:
     def __init__(self, **kwargs):
         self.KeyWordNum = 5
         self.VecSize = 300
-        self.ContextLen = 10
-        self.HiddenUnit = 800
         self.RNNUnitNum = 300
-        self.KernelSize = 5
-        self.KernelNum = 800
         self.TopicNum = 30
         self.FlagNum = 60
         self.TopicVec = 10
         self.FlagVec = 20
         self.ContextVec = 400
         self.WordNum = 80000
-        self.BatchSize = 128
+        self.BatchSize = 256
         self.L2NormValue = 0.02
         self.DropoutProb = 0.7
         self.GlobalNorm = 0.5
-        self.LearningRate = 0.001
-        self.HidderLayer = 3
+        self.LearningRate = 0.01
         self.LRDecayRate = 0.8
 
         self.SourceFile = 'DP.txt'
@@ -43,14 +38,13 @@ class Meta:
         self.numTopic = 30
 
         self.Epoch = 10
-        self.EpochSize = 100000
+        self.EpochSize = 1000
 
         self.ReadNum = 10
-        self.LogInterval = 10
+        self.LogInterval = 1
 
         self.EvalCaseNum = 40
 
-        self.MaxSentenceLength = 100
         for k in kwargs:
             self.__setattr__(k, kwargs[k])
 
@@ -220,7 +214,7 @@ class Model:
         self.ContextVec = 400
         self.WordNum = 80000
         self.BatchSize = 64
-        self.MaxHuffLength = 17
+        self.MaxHuffLength = 19
         self.L2NormValue = 0.02
         self.DropoutProb = 0.7
         self.GlobalNorm = 0.5
@@ -284,11 +278,14 @@ class Model:
         q = tf.expand_dims(q, 1)
 
         align = tf.tensordot(q, weightAtten, [-1, 0]) * k
+
         align = tf.reduce_sum(align, axis=-1)
         align = tf.nn.softmax(align)
+        tf.summary.histogram('align',align)
         align = tf.expand_dims(align, -1)
         v = align * k
         v = tf.reduce_sum(v, 1)
+        print(v)
         atten = v
 
         cellInput = tf.concat([InWordVector,atten],axis=-1)
@@ -342,13 +339,15 @@ class Model:
 
             finalLoss = loss_sum + omega
             tf.summary.scalar('Loss', finalLoss)
+            tf.summary.scalar('PrecMac', precMac)
+            tf.summary.scalar('PrecMic', precMic)
             optimizer = tf.train.AdamOptimizer(learning_rate=lr_tmp)
             grads = optimizer.compute_gradients(finalLoss)
             for grad, var in grads:
                 tf.summary.histogram(var.name + '/gradient', grad)
-            grad, var = zip(*grads)
-            tf.clip_by_global_norm(grad, self.GlobalNorm)
-            grads = zip(grad, var)
+            # grad, var = zip(*grads)
+            # tf.clip_by_global_norm(grad, self.GlobalNorm)
+            # grads = zip(grad, var)
             merge = tf.summary.merge_all()
             train = optimizer.apply_gradients(grads)
             ops = {
@@ -365,8 +364,17 @@ class Model:
                 'merge': merge,
             }
         else:
-            ops={}
+            probMap = tf.tensordot(new_output,HuffWeight,[-1,-1])
+            probMap = tf.squeeze(probMap)
+            ops={
+                'InWordVector': InWordVector,
+                'KeyWordVector': KeyWordVector,
+                'WordLabel': WordLabel,
+                'State':State,
+                'NewState': NewState,
+                'probMap':probMap
 
+            }
         return ops
 
 
@@ -467,8 +475,9 @@ class Main:
                             saver.save(sess, os.path.join(checkpoint_dir,
                                                           kwargs['TaskName'] + '_summary-' + str(e)),
                                        global_step=global_step)
+                            break
 
-                    print("[INFO] Epoch %d 结束，现在开始保存模型..." % i)
+                    print("[INFO] Epoch %d 结束，现在开始保存模型..." % e)
                     saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(e)),
                                global_step=global_step)
                 except KeyboardInterrupt:
@@ -482,8 +491,9 @@ class Main:
         evalCaseNum = kwargs['EvalCaseNum']
 
         dataPipe = Data(**kwargs)
-        dataProvider = dataPipe.batch_data(1)
+        huffTable, huffLabelTable, huffLenTable = dataPipe.Dict.getHuffmanDict()
         model = Model(**kwargs)
+        ops = model.build_model('train', huffTable, huffLabelTable, huffLenTable)
 
         ops = model.build_model('valid')
         if 'CKP_DIR' not in kwargs:
@@ -517,29 +527,28 @@ class Main:
             sess.graph.finalize()
             start_time = time.time()
             # 开始训练
+
+            inputPipe = dataPipe.pipe_data()
+            newState = None
+
             for i in range(evalCaseNum):
                 try:
                     last_time = time.time()
-                    wordVecList, refVector, wordList, wordLength = next(dataProvider)
-                    state = np.zeros([1,2,model.RNNUnitNum])
+
+                    wordVecList, refVector, wordList, wordLength = next(inputPipe)
+                    state = np.zeros([2,1,model.RNNUnitNum])
                     SentenceVector = np.zeros(shape=[model.VecSize],dtype=np.float32)
                     wordList = []
-                    for l in range(wordLength[0]):
-                        SentenceVector = np.reshape(SentenceVector,[1,1,-1])
-                        prob, newState = sess.run([ops['resProb'],ops['newState']],
-                                          feed_dict={
-                                              ops['SentenceVector']: SentenceVector ,
-                                              ops['KeyWordVector']: refVector,
-                                              ops['i']: l,
-                                              ops['oldState']: state,
-
-                                          })
-
-                        maxID = np.argmax(prob)
-                        genWord = dataPipe.Dict.N2GRAM[maxID]
+                    for l in range(wordLength):
+                        newState,prob = sess.run(
+                            [ops['NewState'],ops['probMap']], feed_dict={
+                                ops['InWordVector']: SentenceVector,
+                                ops['KeyWordVector']: refVector,
+                                ops['State']: state,
+                            })
+                        genWord = dataPipe.Dict.read_word_from_Huffman(prob)
                         SentenceVector = dataPipe.WordVectorMap.get_vec(genWord)
                         state = np.array(newState)
-                        state = np.transpose(state,[1,0,2])
                         wordList.append(genWord)
 
                     print(' '.join(wordList))
@@ -566,6 +575,7 @@ if __name__ == '__main__':
                          ReadNum=int(args[1])*1000,
                          WordNum = 80000,
                          LearningRate=float(args[2]),
+                         MaxHuffLength = 25,
                          EpochSize = 10000,
                          SourceFile='DP_comma.txt',
                          DictName="DP_comma_DICT.txt").get_meta()
@@ -579,11 +589,17 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DP_s2s_hierarchacal',BatchSize = 256 ,ReadNum = 8000,
-                         LearningRate = 0.01,
+        meta = Meta(TaskName = 'DPlite_s2s_hierarchacal',BatchSize = 512 ,ReadNum = 800000,
+                         LearningRate = 0.05,
                          SourceFile='DP_comma.txt',
-                         DictName = "DP_comma_DICT.txt").get_meta()
-        dp = Data(**meta).pipe_data()
-        for i in dp:
-            sys.stdout.write("\r %d %d %d %d"%(len(i[0]),len(i[1]),len(i[2]),i[3]))
-        # Main().run_train(**meta)
+                         WordNum = 80000,
+                    EpochSize=10000,
+                    Epoch = 100,
+
+                    DictName = "DP_comma_DICT.txt").get_meta()
+        dc = DictFreqThreshhold()
+        dc.getHuffmanDict()
+
+        # for i in dp:
+        #     sys.stdout.write("\r %d %d %d %d"%(len(i[0]),len(i[1]),len(i[2]),i[3]))
+        Main().run_train(**meta)

@@ -372,16 +372,28 @@ class DictFreqThreshhold:
             huffLenTable.append(tlen)
         meta_file = open('Huffman_Layer.json','w',encoding='utf-8')
         json.dump([huffTable,huffLabelTable,huffLenTable],meta_file)
+        print('[INFO] Huffman Layer Data has been build')
+
         return huffTable,huffLabelTable,huffLenTable
     def read_word_from_Huffman(self,layersValues):
-        np = 0
+
         encoding = ''
         try:
             while True:
-                pass
-
+                np = self.HUFF2LAYER[encoding]
+                if layersValues[np] >0.5:
+                    encoding += '1'
+                else:
+                    encoding += '0'
         except KeyError:
+            if encoding not in self.HUFF2N:
+                print('[ERROR] 在字典中没有找到对应的哈夫曼编码 “%s”'%encoding)
+                return 0
+            else:
+                wordId = self.HUFF2N[encoding]
+                return wordId
             pass
+
     def HuffmanEncoding(self,forceBuild = False):
         class HuffmanNode:
             def __init__(self,val = None,word = None):
@@ -426,11 +438,11 @@ class DictFreqThreshhold:
             if c %1000==0:
                 print('[INFO] Huffman Build %d'%c)
             if tmpNode.word is not None:
-                self.N2HUFF[tmpNode.word] = tmpNode.huffman
+                self.N2HUFF[str(tmpNode.word)] = tmpNode.huffman
                 self.HUFF2N[tmpNode.huffman] = tmpNode.word
                 continue
             self.HUFF2LAYER[tmpNode.huffman] = c
-            self.LAYER2HUFF[c] = tmpNode.huffman
+            self.LAYER2HUFF[str(c)] = tmpNode.huffman
             if tmpNode.left is not None:
                 tmpNode.left.huffman = tmpNode.huffman + '0'
                 NodeQ.append(tmpNode.left)

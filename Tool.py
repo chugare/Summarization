@@ -216,7 +216,7 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
         #         try:
         commentLine = line
         commentLine = commentLine.replace('\n', '')
-        if len(commentLine) < 5:
+        if len(commentLine) < 50:
             continue
         countFile += 1
         if (countFile) % 1000 == 0:
@@ -350,8 +350,7 @@ if __name__ == '__main__':
     mod = arg[1]
     fileName = arg[2]
     if mod == '-t':
-        TXT2TXT_extract(fileName,"DP_comma",testCase = 81000
-                        )
+        TXT2TXT_extract(fileName,"DP_comma",testCase = 81000)
     elif mod == '-x':
         XML2TXT_extract(fileName)
 
