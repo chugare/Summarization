@@ -84,11 +84,12 @@ class Data:
     def get_key_word(self,line,num):
 
             tfvec = self.TF_IDF.tf_calc(line)
-            if len(tfvec)<self.KeyWordNum:
+            if len(tfvec)<self.KeyWordNum*2:
                 print(tfvec)
                 print(line)
                 print('')
-            res = self.TF_IDF.get_top_word(tfvec,self.KeyWordNum)
+                return []
+            res = self.TF_IDF.get_top_word(tfvec,num)
             return res
     def get_word_mat(self):
         wordNum = self.Dict.DictSize
@@ -121,6 +122,8 @@ class Data:
             wordList = []
 
             ref_word = self.get_key_word(words, self.KeyWordNum)
+            if len(ref_word)<self.KeyWordNum:
+                continue
             ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_word}
             for word in words:
                 currentWordId, flag = self.Dict.get_id_flag(word)
