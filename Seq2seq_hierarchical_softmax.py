@@ -554,7 +554,7 @@ if __name__ == '__main__':
 
 
     if len(args)>1:
-        meta = Meta(TaskName='DP_s2s_hierarchacal', BatchSize=128,
+        meta = Meta(TaskName='DP_s2s_hierarchacal', BatchSize=256,
                          ReadNum=int(args[1])*1000,
                          WordNum = 80000,
                          LearningRate=float(args[2]),
