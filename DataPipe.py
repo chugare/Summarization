@@ -818,7 +818,11 @@ if __name__ == '__main__':
             coord.request_stop()
             coord.join(threads)
     def t1():
-        dp = DataPipe(TaskName = 'DP',ReadNum = int(args[1]),DictName='DP_DICT.txt')
+        dp = DataPipe(TaskName = 'DP',ReadNum = 10,DictName='DP_DICT.txt')
+        meta = Meta(ReadNum = 10).get_meta()
+        g = dp.pipe_data(**meta)
+        for w in g:
+
 
     dc = DictFreqThreshhold(ReadNum = 10)
     # dc.HuffmanEncoding()

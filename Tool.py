@@ -327,8 +327,12 @@ class Tf_idf:
         vt_l.sort(key=lambda x:x[1],reverse=True)
         res = []
         for i in range(k):
-            w = vt_l[i][0]
-            res.append(w)
+            try:
+                w = vt_l[i][0]
+                res.append(w)
+            except IndexError:
+                print(vt_l)
+                res.append(0)
         return  res
     def read_doc_all(self):
         file_all = open(self.FileName,'r',encoding='utf-8')

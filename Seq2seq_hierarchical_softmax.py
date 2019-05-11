@@ -575,9 +575,7 @@ if __name__ == '__main__':
                          LearningRate = 0.01,
                          SourceFile='DP_comma.txt',
                          DictName = "DP_comma_DICT.txt").get_meta()
-        # dp = Data(**meta).pipe_data()
-        # db = Data.Databatchor(dp)
-        #
-        # for i in range(10):
-        #     print(db.get_next())
-        Main().run_train(**meta)
+        dp = Data(**meta).pipe_data()
+        for i in dp:
+            print([len(j) for j in i])
+        # Main().run_train(**meta)
