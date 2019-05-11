@@ -84,7 +84,7 @@ class Data:
     def get_key_word(self,line,num):
 
             tfvec = self.TF_IDF.tf_calc(line)
-            if len(tfvec)<self.KeyWordNum*2:
+            if len(tfvec)<(self.KeyWordNum+2):
                 print(tfvec)
                 print(line)
                 print('')
