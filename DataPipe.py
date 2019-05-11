@@ -822,6 +822,7 @@ if __name__ == '__main__':
         meta = Meta(ReadNum = 10).get_meta()
         g = dp.pipe_data(**meta)
         for w in g:
+            pass
 
 
     dc = DictFreqThreshhold(ReadNum = 10)
