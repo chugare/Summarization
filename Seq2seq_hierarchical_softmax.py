@@ -454,8 +454,8 @@ class Main:
                             batch_count += 1
                             global_step += 1
 
-                        except Exception as e:
-                            logging.exception(e)
+                        except Exception as exp:
+                            logging.exception(exp)
                             print("[INFO] 因为程序错误停止训练，开始保存模型")
                             saver.save(sess, os.path.join(checkpoint_dir,
                                                           kwargs['TaskName'] + '_summary-' + str(e)),
