@@ -531,6 +531,7 @@ if __name__ == '__main__':
         meta = Meta(TaskName = 'DP_lite',BatchSize = 64 ,ReadNum = -1,
                     WordNum = 10000,
                          LearningRate = 0.01,
+                    Epoch = 100,
                          SourceFile='DP_lite.txt',
                          DictName = "DP_lite_DICT.txt").get_meta()
         Main().run_train(**meta)
