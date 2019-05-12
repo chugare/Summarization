@@ -840,21 +840,21 @@ if __name__ == '__main__':
 
     args = sys.argv
     try:
-        TaskName = args[0]
+        TaskName = args[1]
     except IndexError:
         TaskName = 'DP_lite'
     try:
-        DictName = args[1]
+        DictName = args[2]
     except IndexError:
         DictName = TaskName+'_DICT.txt'
 
     try:
-        SourceFile = args[2]
+        SourceFile = args[3]
     except IndexError:
         SourceFile = TaskName+'.txt'
 
     try:
-        ReadNum = int(args[3])
+        ReadNum = int(args[4])
     except IndexError:
         ReadNum = 10
 
