@@ -539,7 +539,9 @@ class Main:
                     state = np.zeros([2,1,model.RNNUnitNum])
                     SentenceVector = np.zeros(shape=[1,model.VecSize],dtype=np.float32)
                     wordList = []
-                    for l in range(wordLength):
+                    refVector = np.expand_dims(refVector,0)
+
+                for l in range(wordLength):
                         SentenceVector = np.reshape(SentenceVector,[1,-1])
                         newState,prob = sess.run(
                             [ops['NewState'],ops['probMap']], feed_dict={
