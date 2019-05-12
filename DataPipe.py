@@ -837,13 +837,32 @@ if __name__ == '__main__':
             pass
 
 
-    dc = DictFreqThreshhold(ReadNum = 10)
+    args = sys.argv
+    try:
+        TaskName = args[0]
+    except IndexError:
+        TaskName = 'DP_lite'
+    try:
+        DictName = args[1]
+    except IndexError:
+        DictName = TaskName+'_DICT.txt'
+
+    try:
+        SourceFile = args[2]
+    except IndexError:
+        SourceFile = TaskName+'.txt'
+
+    try:
+        ReadNum = int(args[3])
+    except IndexError:
+        ReadNum = 10
+
+    meta  = Meta().get_meta()
+    dc = DictFreqThreshhold(ReadNum = ReadNum,DictName = DictName,SourceFile = SourceFile)
     # dc.HuffmanEncoding()
     dc.getHuffmanDict()
     print(' ')
     # # unit_test()
-    # args = sys.argv
-    # meta  = Meta( ReadNum=int(args[1])).get_meta()
     # dp = DataPipe(**meta)
     # # meta = getmeta(**meta)
     # dp.write_TFRecord(meta,int(args[2]))

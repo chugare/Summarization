@@ -349,8 +349,14 @@ if __name__ == '__main__':
     arg = sys.argv
     mod = arg[1]
     fileName = arg[2]
+    taskName = arg[3]
+    thershold = int(arg[4])
+    try:
+        readNum = int(arg[4])
+    except IndexError:
+        readNum = -1
     if mod == '-t':
-        TXT2TXT_extract(fileName,"DP_comma",testCase = 81000)
+        TXT2TXT_extract(fileName,taskName,testCase = )
     elif mod == '-x':
         XML2TXT_extract(fileName)
     elif mod == '-tl':
