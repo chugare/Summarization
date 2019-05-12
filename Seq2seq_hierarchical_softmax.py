@@ -366,7 +366,7 @@ class Model:
                 'merge': merge,
             }
         else:
-            probMap = tf.tensordot(new_output,HuffWeight,[-1,-1])
+            probMap = tf.tensordot(outPut,HuffWeight,[-1,-1])
             probMap = tf.squeeze(probMap)
             ops={
                 'InWordVector': InWordVector,
