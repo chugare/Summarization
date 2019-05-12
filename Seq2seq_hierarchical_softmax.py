@@ -112,13 +112,15 @@ class Data:
             if len(words) < 20 :
                 continue
             wordVecList = []
-            wordVecList.append(np.zeros([self.VecSize],np.float32))
+            # wordVecList.append(np.zeros([self.VecSize],np.float32))
             wordList = []
 
             ref_word = self.get_key_word(words, self.KeyWordNum)
             if len(ref_word)<self.KeyWordNum:
                 continue
             ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_word}
+            wordVecList.append(ref_word.values()[0])
+
             for word in words:
                 currentWordId, flag = self.Dict.get_id_flag(word)
                 if currentWordId < 0:

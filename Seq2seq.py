@@ -116,7 +116,7 @@ class Data:
                 continue
 
             ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_word}
-            wordVecList.append(ref_word.items()[0])
+            wordVecList.append(list(ref_word.values())[0])
             for word in words:
                 currentWordId, flag = self.Dict.get_id_flag(word)
                 if currentWordId < 0:
