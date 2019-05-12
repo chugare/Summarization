@@ -72,12 +72,10 @@ def kk(**kwargs):
     return kwargs
 # r()
 #
-
-m = {1:'p',
-     2:'e',
-     }
-print(list(m.values())[0])
-
+import random
+m = [random.randint(0,1999) for i in range(10)]
+m.sort(reverse= True)
+print(m)
 # var1 = tf.placeholder(shape=[50],dtype=tf.float32)
 # val = np.arange(50)
 # vart = tf.reshape(var1,[5,2,5])

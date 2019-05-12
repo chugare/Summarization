@@ -319,7 +319,7 @@ class Tf_idf:
         tf_idf = {}
         for k in tf:
             try:
-                tf_idf[k] = tf[k]/self.idf[k]
+                tf_idf[k] = tf[k]/(self.idf[k]**2)
             except KeyError:
                 pass
         return  tf_idf
@@ -375,4 +375,4 @@ if __name__ == '__main__':
         TXT2TXT_extract(fileName,"DP_lite",testCase = -1)
 
     elif mod == '-tf':
-        tfidf = Tf_idf(dic='DP_comma_DICT.txt',doc_file='DP_comma.txt')
+        tfidf = Tf_idf(dic='%s_DICT.txt'%taskName,doc_file='%s.txt'%taskName)
