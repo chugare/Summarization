@@ -522,8 +522,9 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DP_s2s',BatchSize = 64 ,ReadNum = 800000,
-                         LearningRate = 0.001,
-                         SourceFile='DP_comma.txt',
-                         DictName = "DP_comma_DICT.txt").get_meta()
+        meta = Meta(TaskName = 'DP_lite',BatchSize = 64 ,ReadNum = -1,
+                    WordNum = 10000,
+                         LearningRate = 0.01,
+                         SourceFile='DP_lite.txt',
+                         DictName = "DP_lite_DICT.txt").get_meta()
         Main().run_train(**meta)
