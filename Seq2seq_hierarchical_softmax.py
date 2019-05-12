@@ -594,16 +594,16 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DPlite',BatchSize = 512 ,ReadNum = 800000,
+        meta = Meta(TaskName = 'DPlite',BatchSize = 512 ,ReadNum = -1,
                          LearningRate = 0.05,
                          SourceFile='DP_lite.txt',
                          WordNum = 10000,
-                    EpochSize=10000,
+                    EpochSize=100000,
                     Epoch = 100,
 
                     DictName = "DP_lite_DICT.txt").get_meta()
-        dc = DictFreqThreshhold()
-        dc.getHuffmanDict()
+        # dc = DictFreqThreshhold()
+        # dc.getHuffmanDict()
 
         # for i in dp:
         #     sys.stdout.write("\r %d %d %d %d"%(len(i[0]),len(i[1]),len(i[2]),i[3]))
