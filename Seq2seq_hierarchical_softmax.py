@@ -576,7 +576,7 @@ if __name__ == '__main__':
 
 
     if len(args)>1:
-        meta = Meta(TaskName='DP_s2s_hierarchacal', BatchSize=256,
+        meta = Meta(TaskName='DP_lite', BatchSize=256,
                          ReadNum=int(args[1])*1000,
                          WordNum = 80000,
                          LearningRate=float(args[2]),
@@ -594,8 +594,8 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DP_lite',BatchSize = 512 ,ReadNum = -1,
-                         LearningRate = 0.05,
+        meta = Meta(TaskName = 'DP_lite',BatchSize = 128 ,ReadNum = -1,
+                         LearningRate = 0.01,
                          SourceFile='DP_lite.txt',
                          WordNum = 10000,
                     EpochSize=100000,
