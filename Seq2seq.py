@@ -208,7 +208,7 @@ class Model:
                                        name='Sequence_Vector')
         SentenceLength = tf.placeholder(dtype=tf.int32, shape=[self.BatchSize], name="Sentence_Length")
 
-        weightAtten = self.get_variable(name= 'Attention_weight', shape=[self.VecSize,self.VecSize], dtype=tf.float32,
+        weightAtten = self.get_variable(name= 'Attention_weight', shape=[self.RNNUnitNum,self.VecSize], dtype=tf.float32,
                               initializer=tf.glorot_uniform_initializer())
         cell = tf.nn.rnn_cell.BasicLSTMCell(num_units=self.RNNUnitNum)
         def loopOpt(i,state,output,maskTA):
