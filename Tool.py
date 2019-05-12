@@ -353,6 +353,8 @@ if __name__ == '__main__':
         TXT2TXT_extract(fileName,"DP_comma",testCase = 81000)
     elif mod == '-x':
         XML2TXT_extract(fileName)
+    elif mod == '-tl':
+        TXT2TXT_extract(fileName,"DP_lite",testCase = -1)
 
     elif mod == '-tf':
         tfidf = Tf_idf(dic='DP_comma_DICT.txt',doc_file='DP_comma.txt')
