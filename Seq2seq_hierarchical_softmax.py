@@ -489,14 +489,20 @@ class Main:
                             # matplotlib 实现可视化loss
                             batch_count += 1
                             global_step += 1
-
-                        except Exception as exp:
+                        except StopIteration as exp:
                             logging.exception(exp)
                             print("[INFO] 因为程序错误停止训练，开始保存模型")
                             saver.save(sess, os.path.join(checkpoint_dir,
                                                           kwargs['TaskName'] + '_summary-' + str(e)),
                                        global_step=global_step)
                             break
+                        except Exception as exp:
+                            logging.exception(exp)
+                            print("[INFO] 因为程序错误停止训练，开始保存模型")
+                            saver.save(sess, os.path.join(checkpoint_dir,
+                                                          kwargs['TaskName'] + '_summary-' + str(e)),
+                                       global_step=global_step)
+                            return
 
                     print("[INFO] Epoch %d 结束，现在开始保存模型..." % e)
                     saver.save(sess, os.path.join(checkpoint_dir, kwargs['TaskName'] + '_summary-' + str(e)),
