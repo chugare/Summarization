@@ -347,6 +347,12 @@ class Tf_idf:
     def read_doc_case(fname):
         file_all = open(fname,'r',encoding='utf-8')
         data_all = json.load(file_all)
+def _ref():
+    file = open('DP_lite.txt','r',encoding='utf-8')
+    nfile = open('rDP_lite.txt','w',encoding='utf-8')
+    for line in file:
+        nl = line.replace('   ',' ')
+        nfile.write(nl)
 
 if __name__ == '__main__':
     arg = sys.argv
@@ -354,6 +360,8 @@ if __name__ == '__main__':
     fileName = arg[2]
     taskName = arg[3]
     thershold = int(arg[4])
+
+    _ref()
     try:
         readNum = int(arg[4])
     except IndexError:
