@@ -3,7 +3,7 @@ import os
 import random
 import sys
 import time
-
+import json
 import numpy as np
 import tensorflow as tf
 from  Tool import  Tf_idf
@@ -109,7 +109,7 @@ class Data:
                 refVector.append(np.zeros([self.VecSize]))
             # print(len(wordVecList))
             # print(len(refVector))2
-            yield wordVecList,refVector,wordList,wordLength,ref_word,line
+            yield wordVecList,refVector,wordList,wordLength,ref_words,line
 
     def batch_data(self,batchSize):
         gen = self.pipe_data()
@@ -487,8 +487,15 @@ class Main:
                         state = np.transpose(state,[1,0,2])
                         wordList.append(genWord)
 
-                    print(' '.join(wordList))
+                    gen = ' '.join(wordList)
+                    print(gen)
+                    print(line)
                     print(keyWord)
+                    generateResult.append({
+                        'gen':gen,
+                        'ref':line,
+                        'key':keyWord
+                    })
                     cur_time = time.time()
                     time_cost = cur_time - last_time
                     total_cost = cur_time - start_time
@@ -501,7 +508,7 @@ class Main:
                     print("[INFO] 强行停止验证 开始保存结果")
 
                     break
-
+                json.dump(generateResult,resFile,ensure_ascii=False)
 
 if __name__ == '__main__':
 
