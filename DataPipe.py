@@ -45,7 +45,7 @@ class WordVec:
         self._read_vec()
     def dump_file(self):
         file = open('word_vec.char','w',encoding='utf-8')
-        file.write(str(self.num)+' 300\n')
+        # file.write(str(self.num)+' 300\n')
         for w in self.vec_dic:
             vec_f = [str(i) for i in self.vec_dic[w]]
             vec_str = ' '.join(vec_f)
@@ -53,7 +53,7 @@ class WordVec:
         file.close()
     def SimplifiedByText(self,Name,wordlist):
         file = open('%s.char'%Name,'w',encoding='utf-8')
-        file.write(str(self.num)+' 300\n')
+        # file.write(str(self.num)+' 300\n')
         print('[INFO] Now building simplified word vector dictionary, totally word %d'%len(wordlist))
         count = 0
         for w in wordlist:
