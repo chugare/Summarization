@@ -505,16 +505,16 @@ if __name__ == '__main__':
     args = sys.argv
 
     if len(args)>1:
-        meta = Meta(TaskName='DP_s2s', BatchSize=64,
-                         ReadNum=int(args[1]),
-                         WordNum = int(args[2]),
-                         LearningRate=0.001,
-                         EpochSize = int(args[3]),
-                         SourceFile='DP.txt',
-                         DictName="DP_DICT.txt").get_meta()
-        if args[4] == 't':
+        meta = Meta(TaskName='DP_lite', BatchSize=64,
+                         ReadNum=-1,
+                         WordNum = 10000,
+                         LearningRate=float(args[2]),
+                         EpochSize = 10000,
+                         SourceFile='DP_lite.txt',
+                         DictName="DP_lite_DICT.txt").get_meta()
+        if args[1] == 't':
             Main().run_train(**meta)
-        elif args[4] == 'v':
+        elif args[1] == 'v':
             meta['SourceFile'] = 'E_'+meta['SourceFile']
             meta['BatchSize'] = 1
             meta['MaxSentenceLength'] = 1

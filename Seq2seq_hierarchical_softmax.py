@@ -273,14 +273,7 @@ class Model:
 
 
 
-
-
-        cellInput = InWordVector
-        # cellInput = tf.concat([InWordVector,atten],axis=-1)
-
-        new_output,NewState = cell(cellInput,stateTuple)
-        # new_output = new_output*mask
-        q = NewState[0]
+        q = stateTuple[0]
         k = KeyWordVector
         q = tf.expand_dims(q, 1)
 
@@ -294,9 +287,35 @@ class Model:
         v = tf.reduce_sum(v, 1)
         print(v)
         atten = v
-        outPut = tf.concat([new_output,atten],-1)
+        # outPut = tf.concat([new_output,atten],-1)
 
-        HuffWeight = self.get_variable('HuffmanWeight',shape=[self.WordNum,self.RNNUnitNum+self.VecSize],dtype=tf.float32,
+
+        # cellInput = InWordVector
+        cellInput = tf.concat([InWordVector,atten],axis=-1)
+
+        new_output,NewState = cell(cellInput,stateTuple)
+        # new_output = new_output*mask
+        # q = NewState[0]
+        # k = KeyWordVector
+        # q = tf.expand_dims(q, 1)
+        #
+        # align = tf.tensordot(q, weightAtten, [-1, 0]) * k
+        #
+        # align = tf.reduce_sum(align, axis=-1)
+        # align = tf.nn.softmax(align)
+        # tf.summary.histogram('align',align)
+        # align = tf.expand_dims(align, -1)
+        # v = align * k
+        # v = tf.reduce_sum(v, 1)
+        # print(v)
+        # atten = v
+        # outPut = tf.concat([new_output,atten],-1)
+        # HuffWeight = self.get_variable('HuffmanWeight',shape=[self.WordNum,self.RNNUnitNum+self.VecSize],dtype=tf.float32,
+        #                        initializer=tf.glorot_uniform_initializer())
+
+        outPut = new_output
+
+        HuffWeight = self.get_variable('HuffmanWeight',shape=[self.WordNum,self.RNNUnitNum],dtype=tf.float32,
                                       initializer=tf.glorot_uniform_initializer())
         lossTA = tf.TensorArray(dtype=tf.float32,size=self.BatchSize,name='LOSS_TA')
 
