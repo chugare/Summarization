@@ -8,46 +8,9 @@ import numpy as np
 import tensorflow as tf
 from  Tool import  Tf_idf
 from DataPipe import DictFreqThreshhold, WordVec
+from Meta import Meta
 
-
-class Meta:
-    def __init__(self, **kwargs):
-        self.KeyWordNum = 5
-        self.VecSize = 300
-        self.RNNUnitNum = 800
-        self.TopicNum = 30
-        self.FlagNum = 60
-        self.TopicVec = 10
-        self.FlagVec = 20
-        self.ContextVec = 400
-        self.WordNum = 80000
-        self.BatchSize = 256
-        self.L2NormValue = 0.02
-        self.DropoutProb = 0.7
-        self.GlobalNorm = 0.5
-        self.LearningRate = 0.01
-        self.LRDecayRate = 0.8
-
-        self.SourceFile = 'DP.txt'
-        self.TaskName = 'DP'
-        self.Name = 'DP_gen'
-        self.DictName = "DP_DICT.txt"
-        self.DictSize = 80000
-
-        self.passes = 1
-        self.numTopic = 30
-
-        self.Epoch = 10
-        self.EpochSize = 100000
-
-        self.ReadNum = 10
-        self.LogInterval = 10
-
-        self.EvalCaseNum = 40
-
-        self.MaxSentenceLength = 100
-        for k in kwargs:
-            self.__setattr__(k, kwargs[k])
+class Meta_l(Meta):
 
     def get_meta(self):
         return self.__dict__
@@ -146,7 +109,7 @@ class Data:
                 refVector.append(np.zeros([self.VecSize]))
             # print(len(wordVecList))
             # print(len(refVector))2
-            yield wordVecList,refVector,wordList,wordLength,ref_word
+            yield wordVecList,refVector,wordList,wordLength,ref_word,line
 
     def batch_data(self,batchSize):
         gen = self.pipe_data()
@@ -473,6 +436,8 @@ class Main:
             # log_device_placement=True
 
         )
+
+        resFile = open("result.json",'w',encoding='utf-8')
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             # 训练配置，包括参数初始化以及读取检查点
@@ -487,14 +452,24 @@ class Main:
             sess.graph.finalize()
             start_time = time.time()
             # 开始训练
+
+            generateResult = []
             for i in range(evalCaseNum):
                 try:
                     last_time = time.time()
-                    wordVecList, refVector, wordList, wordLength,refword = next(dataProvider)
+                    wordVecList, refVector, wordList, wordLength,keyWord,line = next(dataProvider)
                     state = np.zeros([1,2,model.RNNUnitNum])
-                    SentenceVector = np.zeros(shape=[model.VecSize],dtype=np.float32)
+                    SentenceVector = wordVecList[0]
                     wordList = []
+
+                    ### BeamSearch
+
+                    BeamSize = kwargs['BeamSize']
+                    path = [[] for _ in range(BeamSize)]
+                    prob = [[] for _ in range(BeamSize)]
                     for l in range(wordLength[0]):
+
+
                         SentenceVector = np.reshape(SentenceVector,[1,1,-1])
                         prob, newState = sess.run([ops['resProb'],ops['newState']],
                                           feed_dict={
@@ -504,6 +479,7 @@ class Main:
                                               ops['oldState']: state,
 
                                           })
+
                         maxID = np.argmax(prob)
                         genWord = dataPipe.Dict.N2GRAM[maxID]
                         SentenceVector = dataPipe.WordVectorMap.get_vec(genWord)
@@ -512,10 +488,12 @@ class Main:
                         wordList.append(genWord)
 
                     print(' '.join(wordList))
-                    print(refword)
+                    print(keyWord)
                     cur_time = time.time()
                     time_cost = cur_time - last_time
                     total_cost = cur_time - start_time
+
+                    ### End BeamSearch
                     print('[INFO] Sample %d 验证结果：Pre=%.2f  用时: %.2f 共计用时 %.2f' % (
                         i, 0, time_cost, total_cost))
 

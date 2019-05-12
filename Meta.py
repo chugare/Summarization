@@ -5,6 +5,8 @@ class Meta:
         self.VecSize = 300
         self.ContextLen = 10
         self.HiddenUnit = 800
+        self.RNNUnitNum = 800
+
         self.KernelSize = 5
         self.KernelNum = 800
         self.TopicNum = 30
@@ -40,6 +42,7 @@ class Meta:
 
 
         self.MaxSentenceLength = 100
+        self.BeamSize = 5
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
 
