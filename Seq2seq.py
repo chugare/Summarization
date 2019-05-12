@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 import tensorflow as tf
-
+from  Tool import  Tf_idf
 from DataPipe import DictFreqThreshhold, WordVec
 
 
@@ -73,11 +73,17 @@ class Data:
         # self.LdaMap = lda.getLda()
         self.DictSize = self.Dict.DictSize
         self.get_word_mat()
+
+        self.TF_IDF = Tf_idf()
     def get_key_word(self,line,num):
-            line = line[:]
-            random.shuffle(line)
-            num = min(num,len(line))
-            return line[:num]
+        tfvec = self.TF_IDF.tf_calc(line)
+        if len(tfvec)<(self.KeyWordNum+2):
+            print(tfvec)
+            print(line)
+            print('')
+            return []
+        res = self.TF_IDF.get_top_word(tfvec,num)
+        return res
     def get_word_mat(self):
         wordNum = self.Dict.DictSize
         flagNum = self.FlagNum
