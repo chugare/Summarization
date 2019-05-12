@@ -111,11 +111,11 @@ class Data:
             wordVecList = []
             wordList = []
             wordLength = len(words)
-            ref_word = self.get_key_word(words, self.KeyWordNum)
-            if len(ref_word)<self.KeyWordNum:
+            ref_words = self.get_key_word(words, self.KeyWordNum)
+            if len(ref_words)<self.KeyWordNum:
                 continue
 
-            ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_word}
+            ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_words}
             wordVecList.append(list(ref_word.values())[0])
             for word in words:
                 currentWordId, flag = self.Dict.get_id_flag(word)
