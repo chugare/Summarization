@@ -45,9 +45,11 @@ class WordVec:
             self.__setattr__(k,kwargs[k])
         try:
             tmp = open('%s.char'%self.TaskName,mode='r',encoding='utf-8')
+
             tmp.close()
             self.VecFile = '%s.char'%self.TaskName
         except Exception:
+            print('%s.char'%self.TaskName)
             pass
         self._read_vec()
     def dump_file(self):
