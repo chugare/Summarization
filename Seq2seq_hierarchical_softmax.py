@@ -553,8 +553,8 @@ class Main:
                         SentenceVector = dataPipe.WordVectorMap.get_vec(genWord)
                         state = np.array(newState)
                         wordList.append(genWord)
-
-                    print(' '.join(wordList))
+                    resSentence = dataPipe.Dict.get_sentence(wordList)
+                    print(resSentence)
                     cur_time = time.time()
                     time_cost = cur_time - last_time
                     total_cost = cur_time - start_time
