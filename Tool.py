@@ -351,7 +351,8 @@ def _ref():
     file = open('DP_lite.txt','r',encoding='utf-8')
     nfile = open('rDP_lite.txt','w',encoding='utf-8')
     for line in file:
-        nl = line.replace('   ',' ')
+        nl = re.sub(r'\s+',' ',line)
+        # nl = line.replace('   ',' ')
         nfile.write(nl)
 
 if __name__ == '__main__':
