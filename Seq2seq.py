@@ -109,7 +109,7 @@ class Data:
             line = line.strip()
             words = line.split(' ')
             wordVecList = []
-            wordVecList.append(np.zeros([self.VecSize],np.float32))
+            wordVecList.append(np.random.uniform(-1.0,1.0,[self.VecSize]))
             wordList = []
             wordLength = len(words)
             ref_word = self.get_key_word(words, self.KeyWordNum)
@@ -350,10 +350,10 @@ class Main:
         TaskName = kwargs['TaskName']
         epochSize = kwargs['EpochSize']
         logInterval = kwargs['LogInterval']
-        dataPipe = Data(**kwargs)
         model = Model(**kwargs)
         ops = model.build_model(mode='train')
         initOp = tf.initialize_all_variables()
+        dataPipe = Data(**kwargs)
 
         epoch = kwargs['Epoch']
         if 'CKP_DIR' not in kwargs:
