@@ -39,9 +39,16 @@ class WordVec:
         self.num = 0
         self.ReadNum = -1
         self.VecFile = 'word_vec.char'
+        self.TaskName = ''
         print('[INFO] Start load word vector')
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
+        try:
+            tmp = open('%s.char'%self.TaskName,mode='r',encoding='utf-8')
+            tmp.close()
+            self.VecFile = '%s.char'%self.TaskName
+        except Exception:
+            pass
         self._read_vec()
     def dump_file(self):
         file = open('word_vec.char','w',encoding='utf-8')

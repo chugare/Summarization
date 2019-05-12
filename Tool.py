@@ -238,7 +238,7 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     # pos_file = open('POS.txt','w',encoding='utf-8')
     count = 0
     ULSW = ['\n', '\t', ' ', '']
-    wv = WordVec(ReadNum=100000)
+    wv = WordVec(ReadNum=-1)
     wv.SimplifiedByText(taskName,dic.keys())
     for i in ULSW:
         dic[i] = 0
