@@ -578,7 +578,7 @@ if __name__ == '__main__':
     if len(args)>1:
         meta = Meta(TaskName='DP_lite', BatchSize=256,
                          ReadNum=int(args[1])*1000,
-                         WordNum = 80000,
+                         WordNum = 10000,
                          LearningRate=float(args[2]),
                          MaxHuffLength = 25,
                          EpochSize = 10000,
