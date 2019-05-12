@@ -214,7 +214,25 @@ class Model:
         def loopOpt(i,state,output,maskTA):
             lastWord = SentenceVector[:,i]
 
-            q = state[0]
+            # q = state[0]
+            # k = KeyWordVector
+            # q = tf.expand_dims(q, 1)
+            # align = tf.tensordot(q, weightAtten, [-1, 0]) * k
+            # align = tf.reduce_sum(align, axis=-1)
+            # align = tf.nn.softmax(align)
+            # align = tf.expand_dims(align, -1)
+            # v = align * k
+            # v = tf.reduce_sum(v, 1)
+            # atten = v
+            #
+            # cellInput = tf.concat([lastWord,atten],axis=-1)
+            # mask = tf.cast(tf.greater(SentenceLength,i),dtype=tf.float32)
+            #
+            # maskTA = maskTA.write(i,mask)
+
+            cellInput = lastWord
+            new_output,new_state = cell(cellInput,state)
+            q = new_state[0]
             k = KeyWordVector
             q = tf.expand_dims(q, 1)
             align = tf.tensordot(q, weightAtten, [-1, 0]) * k
@@ -224,18 +242,15 @@ class Model:
             v = align * k
             v = tf.reduce_sum(v, 1)
             atten = v
-
-            cellInput = tf.concat([lastWord,atten],axis=-1)
+            output_vec = tf.concat([new_output,atten],-1)
             mask = tf.cast(tf.greater(SentenceLength,i),dtype=tf.float32)
-
             maskTA = maskTA.write(i,mask)
-            new_output,new_state = cell(cellInput,state)
             # new_output = new_output*mask
-            output = output.write(i,new_output)
+            output = output.write(i,output_vec)
             i = i + 1
             return i,new_state,output,maskTA
 
-        outWeight = self.get_variable('OutLayerWeight',shape=[self.RNNUnitNum,self.WordNum],dtype=tf.float32,
+        outWeight = self.get_variable('OutLayerWeight',shape=[self.RNNUnitNum+self.VecSize,self.WordNum],dtype=tf.float32,
                                       initializer=tf.glorot_uniform_initializer())
 
 
