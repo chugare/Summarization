@@ -493,9 +493,9 @@ class Main:
         dataPipe = Data(**kwargs)
         huffTable, huffLabelTable, huffLenTable = dataPipe.Dict.getHuffmanDict()
         model = Model(**kwargs)
-        ops = model.build_model('train', huffTable, huffLabelTable, huffLenTable)
+        ops = model.build_model('valid', huffTable, huffLabelTable, huffLenTable)
 
-        ops = model.build_model('valid')
+        # ops = model.build_model('valid')
         if 'CKP_DIR' not in kwargs:
             kwargs['CKP_DIR'] = 'checkpoint_' + TaskName + '/'
 
