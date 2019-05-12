@@ -516,6 +516,7 @@ if __name__ == '__main__':
                          WordNum = 10000,
                          LearningRate=float(args[2]),
                          EpochSize = 10000,
+                         Epoch = 100,
                          SourceFile='DP_lite.txt',
                          DictName="DP_lite_DICT.txt").get_meta()
         if args[1] == 't':
