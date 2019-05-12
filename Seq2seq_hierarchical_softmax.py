@@ -537,9 +537,10 @@ class Main:
 
                     wordVecList, refVector, wordList, wordLength = next(inputPipe)
                     state = np.zeros([2,1,model.RNNUnitNum])
-                    SentenceVector = np.zeros(shape=[model.VecSize],dtype=np.float32)
+                    SentenceVector = np.zeros(shape=[1,model.VecSize],dtype=np.float32)
                     wordList = []
                     for l in range(wordLength):
+                        SentenceVector = np.reshape(SentenceVector,[1,-1])
                         newState,prob = sess.run(
                             [ops['NewState'],ops['probMap']], feed_dict={
                                 ops['InWordVector']: SentenceVector,
