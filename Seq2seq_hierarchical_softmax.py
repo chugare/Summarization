@@ -541,7 +541,7 @@ class Main:
                     wordList = []
                     refVector = np.expand_dims(refVector,0)
 
-                for l in range(wordLength):
+                    for l in range(wordLength):
                         SentenceVector = np.reshape(SentenceVector,[1,-1])
                         newState,prob = sess.run(
                             [ops['NewState'],ops['probMap']], feed_dict={
