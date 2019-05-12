@@ -362,7 +362,7 @@ if __name__ == '__main__':
     taskName = arg[3]
     thershold = int(arg[4])
 
-    _ref()
+    # _ref()
     try:
         readNum = int(arg[4])
     except IndexError:
