@@ -51,6 +51,22 @@ class WordVec:
             vec_str = ' '.join(vec_f)
             file.write(w+' '+vec_str+'\n')
         file.close()
+    def SimplifiedByText(self,Name,wordlist):
+        file = open('%s.char'%Name,'w',encoding='utf-8')
+        file.write(str(self.num)+' 300\n')
+        print('[INFO] Now building simplified word vector dictionary, totally word %d'%len(wordlist))
+        count = 0
+        for w in wordlist:
+            if w in self.vec_dic:
+                vec_f = [str(i) for i in self.vec_dic[w]]
+                vec_str = ' '.join(vec_f)
+                file.write(w+' '+vec_str+'\n')
+                count += 1
+        file.close()
+        print('[INFO] Simplified word vector has been built totally word %d'%count)
+
+
+
     @staticmethod
     def ulw(word):
         pattern = [

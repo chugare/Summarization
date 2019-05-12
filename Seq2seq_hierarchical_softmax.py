@@ -582,8 +582,8 @@ if __name__ == '__main__':
                          LearningRate=float(args[2]),
                          MaxHuffLength = 25,
                          EpochSize = 10000,
-                         SourceFile='DP_comma.txt',
-                         DictName="DP_comma_DICT.txt").get_meta()
+                         SourceFile='DP_lite.txt',
+                         DictName="DP_lite_DICT.txt").get_meta()
         if args[3] == 't':
             Main().run_train(**meta)
         elif args[3] == 'v':
@@ -594,14 +594,14 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DPlite_s2s_hierarchacal',BatchSize = 512 ,ReadNum = 800000,
+        meta = Meta(TaskName = 'DPlite',BatchSize = 512 ,ReadNum = 800000,
                          LearningRate = 0.05,
-                         SourceFile='DP_comma.txt',
-                         WordNum = 80000,
+                         SourceFile='DP_lite.txt',
+                         WordNum = 10000,
                     EpochSize=10000,
                     Epoch = 100,
 
-                    DictName = "DP_comma_DICT.txt").get_meta()
+                    DictName = "DP_lite_DICT.txt").get_meta()
         dc = DictFreqThreshhold()
         dc.getHuffmanDict()
 
