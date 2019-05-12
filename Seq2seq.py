@@ -14,7 +14,7 @@ class Meta:
     def __init__(self, **kwargs):
         self.KeyWordNum = 5
         self.VecSize = 300
-        self.RNNUnitNum = 300
+        self.RNNUnitNum = 800
         self.TopicNum = 30
         self.FlagNum = 60
         self.TopicVec = 10
