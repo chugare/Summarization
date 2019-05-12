@@ -9,7 +9,7 @@ import math
 import json
 import random
 import time
-thershold = 20
+thershold = 5
 
 def get_name(basename):
     t = time.localtime()

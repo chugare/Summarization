@@ -273,7 +273,14 @@ class Model:
 
 
 
-        q = stateTuple[0]
+
+
+        cellInput = InWordVector
+        # cellInput = tf.concat([InWordVector,atten],axis=-1)
+
+        new_output,NewState = cell(cellInput,stateTuple)
+        # new_output = new_output*mask
+        q = NewState[0]
         k = KeyWordVector
         q = tf.expand_dims(q, 1)
 
@@ -287,14 +294,9 @@ class Model:
         v = tf.reduce_sum(v, 1)
         print(v)
         atten = v
+        outPut = tf.concat([new_output,atten],-1)
 
-        cellInput = tf.concat([InWordVector,atten],axis=-1)
-
-        new_output,NewState = cell(cellInput,stateTuple)
-        # new_output = new_output*mask
-
-
-        HuffWeight = self.get_variable('HuffmanWeight',shape=[self.WordNum,self.RNNUnitNum],dtype=tf.float32,
+        HuffWeight = self.get_variable('HuffmanWeight',shape=[self.WordNum,self.RNNUnitNum+self.VecSize],dtype=tf.float32,
                                       initializer=tf.glorot_uniform_initializer())
         lossTA = tf.TensorArray(dtype=tf.float32,size=self.BatchSize,name='LOSS_TA')
 
@@ -308,7 +310,7 @@ class Model:
             indices = huffmanMap[wordId,:length]
             labels = huffmanLabel[wordId,:length]
             w = tf.gather(HuffWeight, indices)
-            out = tf.tensordot(new_output[i], w, [-1, -1])
+            out = tf.tensordot(outPut[i], w, [-1, -1])
             result = tf.cast(tf.greater(out, 0.5), tf.int32)
             precAllLevel = tf.cast(tf.equal(result, labels), tf.int32)
             precRes = tf.reduce_prod(precAllLevel)
