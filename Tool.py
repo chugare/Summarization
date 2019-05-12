@@ -353,7 +353,7 @@ def _ref():
     for line in file:
         nl = re.sub(r'\s+',' ',line)
         # nl = line.replace('   ',' ')
-        nfile.write(nl)
+        nfile.write(nl+'\n')
 
 if __name__ == '__main__':
     arg = sys.argv
