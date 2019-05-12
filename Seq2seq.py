@@ -459,7 +459,7 @@ class Main:
                     last_time = time.time()
                     wordVecList, refVector, wordList, wordLength,keyWord,line = next(dataProvider)
                     state = np.zeros([1,2,model.RNNUnitNum])
-                    SentenceVector = wordVecList[0,0,:]
+                    SentenceVector = wordVecList[0][0]
                     wordList = []
 
                     ### BeamSearch
