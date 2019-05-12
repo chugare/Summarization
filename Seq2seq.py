@@ -109,11 +109,14 @@ class Data:
             line = line.strip()
             words = line.split(' ')
             wordVecList = []
-            wordVecList.append(np.random.uniform(-1.0,1.0,[self.VecSize]))
             wordList = []
             wordLength = len(words)
             ref_word = self.get_key_word(words, self.KeyWordNum)
+            if len(ref_word)<self.KeyWordNum:
+                continue
+
             ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_word}
+            wordVecList.append(ref_word.items()[0])
             for word in words:
                 currentWordId, flag = self.Dict.get_id_flag(word)
                 if currentWordId < 0:
@@ -125,15 +128,15 @@ class Data:
                 wordVec = self.WordVectorMap.get_vec(word)
                 wordVecList.append(wordVec)
                 wordList.append(currentWordId)
-            if len(wordList)>100:
-                wordList = wordList[:100]
-                wordLength  = 100
+            if len(wordList)>self.MaxSentenceSize:
+                wordList = wordList[:self.MaxSentenceSize]
+                wordLength  = self.MaxSentenceSize
             else:
-                I = 100-len(wordList)
+                I = self.MaxSentenceSize-len(wordList)
                 for i in range(I):
                     wordList.append(random.randint(0,9999))
                     wordVecList.append(np.zeros([self.VecSize],np.float32))
-            wordVecList = wordVecList[:100]
+            wordVecList = wordVecList[:self.MaxSentenceSize]
             refMap = {}
             refVector = []
             for i, k in enumerate(ref_word):
@@ -143,7 +146,7 @@ class Data:
                 refVector.append(np.zeros([self.VecSize]))
             # print(len(wordVecList))
             # print(len(refVector))2
-            yield wordVecList,refVector,wordList,wordLength
+            yield wordVecList,refVector,wordList,wordLength,ref_word
 
     def batch_data(self,batchSize):
         gen = self.pipe_data()
@@ -487,7 +490,7 @@ class Main:
             for i in range(evalCaseNum):
                 try:
                     last_time = time.time()
-                    wordVecList, refVector, wordList, wordLength = next(dataProvider)
+                    wordVecList, refVector, wordList, wordLength,refword = next(dataProvider)
                     state = np.zeros([1,2,model.RNNUnitNum])
                     SentenceVector = np.zeros(shape=[model.VecSize],dtype=np.float32)
                     wordList = []
@@ -509,6 +512,7 @@ class Main:
                         wordList.append(genWord)
 
                     print(' '.join(wordList))
+                    print(refword)
                     cur_time = time.time()
                     time_cost = cur_time - last_time
                     total_cost = cur_time - start_time
