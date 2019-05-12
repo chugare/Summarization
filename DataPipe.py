@@ -223,6 +223,7 @@ class DictFreqThreshhold:
                     break
         except FileNotFoundError:
             print('[INFO] 未发现对应的*_DIC.txt文件，需要先初始化，初始化完毕之后重新运行程序即可')
+            print(self.DictName)
             return
         print('[INFO] 字典初始化完毕，共计单词%d个'%len(self.N2GRAM))
     def dictReformat(self):
