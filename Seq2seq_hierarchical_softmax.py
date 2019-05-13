@@ -353,8 +353,6 @@ class Model:
             precMic = tf.cast(precMicro.stack(),tf.float32)
             precMic = tf.reduce_sum(precMic)/lsum
 
-
-
             lr_p = tf.log(tf.cast(globalStep + 1, tf.float32))
             lr_tmp = (1 / (lr_p + 1)) * self.LearningRate
             loss_sum = tf.reduce_mean(lossTA.stack())

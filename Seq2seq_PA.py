@@ -183,22 +183,6 @@ class Model:
         def loopOpt(i,state,output,maskTA):
             lastWord = SentenceVector[:,i]
 
-            # q = state[0]
-            # k = KeyWordVector
-            # q = tf.expand_dims(q, 1)
-            # align = tf.tensordot(q, weightAtten, [-1, 0]) * k
-            # align = tf.reduce_sum(align, axis=-1)
-            # align = tf.nn.softmax(align)
-            # align = tf.expand_dims(align, -1)
-            # v = align * k
-            # v = tf.reduce_sum(v, 1)
-            # atten = v
-            #
-            # cellInput = tf.concat([lastWord,atten],axis=-1)
-            # mask = tf.cast(tf.greater(SentenceLength,i),dtype=tf.float32)
-            #
-            # maskTA = maskTA.write(i,mask)
-
             cellInput = lastWord
             new_output,new_state = cell(cellInput,state)
             q = new_state[0]
@@ -239,18 +223,35 @@ class Model:
             _,finalState,outputTA,maskTa = tf.while_loop(lambda i,*_: i<self.MaxSentenceLength,
                                                          loopOpt,[i,initState,outputTA,maskTa])
 
-            DmatTA = tf.TensorArray(dtype=tf.float32,size=self.BatchSize,dynamic_size=False,
+            DmatTA = tf.TensorArray(dtype=tf.float32,size=self.MaxSentenceLength,dynamic_size=False,
                                   clear_after_read=False, tensor_array_name='Dmat_ta')
             #
-            def get_dmat(i,DmatTa):
-                tmp = tf.cond(tf.equal(i,0),tf.zeros,)
-                WordLabelOH[:,0,:]
 
+            def get_dmat(i,DmatTa):
+                tmp = tf.cond(tf.equal(i,0),lambda :tf.zeros(shape=[self.WordNum],dtype=tf.float32),
+                              lambda :DmatTa.read(i-1))
+                tmp = tmp + WordLabelOH[:,i,:]
+                DmatTa = DmatTa.write(i,tmp)
+                i = i + 1
+                return i,DmatTa
+            i = tf.constant(0)
+            _,DmatTA = tf.while_loop(lambda i,*_:tf.less(i,self.MaxSentenceLength),body=get_dmat,
+                                     loop_vars=[i,DmatTA])
+
+
+            DmatT = DmatTA.stack()
+
+            PD = DmatT * PA_weight
+
+            PD = tf.transpose(PD,[1,0,2])
+            # PD = PD ** 2
+            tf.summary.histogram('Decay',PD)
             outputTensor = outputTA.stack()
             outputTensor = tf.transpose(outputTensor,[1,0,2])
             maskTensor = maskTa.stack()
             maskTensor = tf.transpose(maskTensor,[1,0])
             res = tf.tensordot(outputTensor,outWeight,[-1,0])
+            res = res - PD
             # res = tf.nn.l2_normalize(res,axis=-1)
             pred = tf.argmax(res,-1)
             pred = tf.cast(pred,tf.int32)
@@ -290,7 +291,7 @@ class Model:
             initState = cell.zero_state(batch_size=self.BatchSize, dtype=tf.float32)
 
             i = tf.placeholder(dtype=tf.float32,shape=[])
-
+            preWord = tf.placeholder(dtype=tf.float32,shape=[self.BatchSize,self.WordNum])
 
             state = tf.placeholder(dtype=tf.float32,shape = [self.BatchSize,2,self.RNNUnitNum])
             stateTuple = tf.nn.rnn_cell.LSTMStateTuple(state[:,0],state[:,1])
@@ -301,18 +302,22 @@ class Model:
             maskTa = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
                                     clear_after_read=False, tensor_array_name='Mask_ta')
 
+            ProbDecay = preWord * PA_weight
+            ProbDecay = tf.squeeze(ProbDecay)
             _,new_state,outputTA,maskTa =  loopOpt(0,runState,outputTA,maskTa)
             outputTensor = outputTA.stack()
             outputTensor = tf.transpose(outputTensor, [1, 0, 2])
             res = tf.tensordot(outputTensor,outWeight,[-1,0])
             # new_output = new_output*mask
             res = tf.squeeze(res)
+            res = res + ProbDecay
             resProb = tf.nn.softmax(res)
             ops = {
                 'SentenceVector': SentenceVector,
                 'KeyWordVector': KeyWordVector,
                 'oldState':state,
                 'newState':new_state,
+                'preWord':preWord,
                 'i':i,
                 'resProb':resProb,
             }
@@ -478,6 +483,7 @@ class Main:
                     BeamSize = kwargs['BeamSize']
                     path = [[] for _ in range(BeamSize)]
                     prob = [[] for _ in range(BeamSize)]
+                    wordMat = [0] * model.WordNum
                     for l in range(wordLength[0]):
 
 
@@ -488,10 +494,13 @@ class Main:
                                               ops['KeyWordVector']: refVector,
                                               ops['i']: l,
                                               ops['oldState']: state,
-
+                                              ops['preWord']:[wordMat]
                                           })
 
-                        maxID = np.argmax(prob)
+                        DSIZE = dataPipe.Dict.DictSize
+                        maxID = np.argmax(prob[0:DSIZE])
+
+                        wordMat[maxID] += 1
                         genWord = dataPipe.Dict.N2GRAM[maxID]
                         SentenceVector = dataPipe.WordVectorMap.get_vec(genWord)
                         state = np.array(newState)
@@ -526,7 +535,7 @@ if __name__ == '__main__':
     args = sys.argv
 
     if len(args)>1:
-        meta = Meta(TaskName='DP_lite', BatchSize=64,
+        meta = Meta(TaskName='DP_lite_pa', BatchSize=64,
                          ReadNum=-1,
                          WordNum = 10000,
                          LearningRate=float(args[2]),
@@ -545,7 +554,7 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DP_lite_pa',BatchSize = 64 ,ReadNum = 1000,
+        meta = Meta(TaskName = 'DP_lite_pa',BatchSize = 64 ,ReadNum = -1,
                     WordNum = 10000,
                     LearningRate = 0.01,
                     Epoch = 100,

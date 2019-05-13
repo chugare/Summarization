@@ -40,10 +40,13 @@ class WordVec:
         self.ReadNum = -1
         self.TaskName = ''
         self.SourceFile = ''
-        self.VecFile = self.SourceFile.replace('.txt','.char')
+        self.VecFile = ""
         print('[INFO] Start load word vector')
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
+
+        self.VecFile = self.SourceFile.replace('.txt', '.char')
+        self.VecFile = self.VecFile.replace('E_','')
         try:
             tmp = open(self.VecFile,mode='r',encoding='utf-8')
 
@@ -136,7 +139,10 @@ class WordVec:
             m = l.strip().split(' ')
             w = m[0]
             vec = m[1:]
-            vec =[float(v) for v in m[1:]]
+            try:
+                vec =[float(v) for v in m[1:]]
+            except ValueError:
+                vec =[float(v.replace(')','-')) for v in m[1:]]
             # if WORD_VEC.ulw(w):
             #     continue
             count+=1
