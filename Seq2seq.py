@@ -529,6 +529,7 @@ if __name__ == '__main__':
             meta['SourceFile'] = 'E_'+meta['SourceFile']
             meta['BatchSize'] = 1
             meta['MaxSentenceLength'] = 1
+            meta['EvalCaseNum'] = int(args[2])
             Main().run_eval(**meta)
 
 
