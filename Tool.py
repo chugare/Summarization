@@ -238,7 +238,7 @@ def TXT2TXT_extract(sourceFile,TaskName,dis_file = None,testCase = -1,
     # pos_file = open('POS.txt','w',encoding='utf-8')
     count = 0
     ULSW = ['\n', '\t', ' ', '']
-    wv = WordVec(ReadNum=-1)
+    wv = WordVec(ReadNum=10000)
     wv.SimplifiedByText(taskName,dic.keys())
     for i in ULSW:
         dic[i] = 0
@@ -319,7 +319,8 @@ class Tf_idf:
         tf_idf = {}
         for k in tf:
             try:
-                tf_idf[k] = tf[k]/(self.idf[k]**2)
+                idf = self.idf[k]
+                tf_idf[k] = tf[k]*(idf**2)
             except KeyError:
                 pass
         return  tf_idf
@@ -364,7 +365,7 @@ if __name__ == '__main__':
 
     # _ref()
     try:
-        readNum = int(arg[4])
+        readNum = int(arg[5])
     except IndexError:
         readNum = -1
     if mod == '-t':

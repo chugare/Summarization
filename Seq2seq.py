@@ -534,7 +534,7 @@ if __name__ == '__main__':
 
 
     else:
-        meta = Meta(TaskName = 'DP_lite',BatchSize = 64 ,ReadNum = -1,
+        meta = Meta(TaskName = 'DP_lite',BatchSize = 64 ,ReadNum = 1000,
                     WordNum = 10000,
                          LearningRate = 0.01,
                     Epoch = 100,
