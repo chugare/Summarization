@@ -310,7 +310,7 @@ class Model:
             res = tf.tensordot(outputTensor,outWeight,[-1,0])
             # new_output = new_output*mask
             res = tf.squeeze(res)
-            res = res + ProbDecay
+            # res = res + ProbDecay
             resProb = tf.nn.softmax(res)
             ops = {
                 'SentenceVector': SentenceVector,
