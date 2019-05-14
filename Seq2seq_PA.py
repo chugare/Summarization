@@ -310,7 +310,7 @@ class Model:
             res = tf.tensordot(outputTensor,outWeight,[-1,0])
             # new_output = new_output*mask
             res = tf.squeeze(res)
-            res = res + ProbDecay*0.5
+            res = res + ProbDecay*(-0.5)
             resProb = tf.nn.softmax(res)
             ops = {
                 'SentenceVector': SentenceVector,
@@ -320,6 +320,7 @@ class Model:
                 'preWord':preWord,
                 'i':i,
                 'resProb':resProb,
+                'PA_weight':PA_weight
             }
 
         return ops
@@ -470,6 +471,7 @@ class Main:
             # 开始训练
 
             generateResult = []
+            PA_weight = []
             for i in range(evalCaseNum):
                 try:
                     last_time = time.time()
@@ -488,7 +490,7 @@ class Main:
 
 
                         SentenceVector = np.reshape(SentenceVector,[1,1,-1])
-                        prob, newState = sess.run([ops['resProb'],ops['newState']],
+                        prob, newState,PA_weight = sess.run([ops['resProb'],ops['newState'],ops['PA_weight']],
                                           feed_dict={
                                               ops['SentenceVector']: SentenceVector ,
                                               ops['KeyWordVector']: refVector,
@@ -528,6 +530,12 @@ class Main:
                     print("[INFO] 强行停止验证 开始保存结果")
 
                     break
+                weightMap = {}
+                for i in dataPipe.Dict.N2GRAM:
+                    weightMap[dataPipe.Dict.N2GRAM[i]] = PA_weight[i]
+                weightfile = open('PA_WEIGHT.json','w',encoding='utf-8')
+
+                json.dump(weightMap,weightfile,ensure_ascii=False)
                 json.dump(generateResult,resFile,ensure_ascii=False)
 
 if __name__ == '__main__':
