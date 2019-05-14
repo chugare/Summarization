@@ -302,7 +302,7 @@ class Model:
             maskTa = tf.TensorArray(dtype=tf.float32, size=self.MaxSentenceLength, dynamic_size=False,
                                     clear_after_read=False, tensor_array_name='Mask_ta')
 
-            PA_weight = 1/PA_weight
+            PA_weight = 1/(PA_weight+1)
             ProbDecay = preWord * PA_weight
             ProbDecay = tf.squeeze(ProbDecay)
             _,new_state,outputTA,maskTa =  loopOpt(0,runState,outputTA,maskTa)
