@@ -532,7 +532,7 @@ class Main:
                     break
                 weightMap = {}
                 for i in dataPipe.Dict.N2GRAM:
-                    weightMap[dataPipe.Dict.N2GRAM[i]] = PA_weight[i]
+                    weightMap[dataPipe.Dict.N2GRAM[i]] = str(PA_weight[i])
                 weightfile = open('PA_WEIGHT.json','w',encoding='utf-8')
 
                 json.dump(weightMap,weightfile,ensure_ascii=False)
