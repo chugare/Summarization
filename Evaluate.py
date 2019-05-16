@@ -110,13 +110,17 @@ def generate_ALL(fname):
         rougeAvg[t] = {}
         for r in rougeSum[t]:
             rougeAvg[t][r] = float(rougeSum[t][r]) / count
-        print("%s %f" % (t, rougeAvg[t]['r']))
+        print("%f" % (rougeAvg[t]['r']))
     BLEUAvg = BLEUSum/ count
     wordIdfAvg = wordIdfSum/count
     wordNumAvg = wordNumSum/count
-    print('BLEU %f'%BLEUAvg)
-    print('WordNUM %f'%wordNumAvg)
-    print('WordIDF %f'%wordIdfAvg)
-generate_ALL('result.json')
+
+    print('%f'%BLEUAvg)
+    print('%f'%wordNumAvg)
+    print('%f'%wordIdfAvg)
+    # print('BLEU %f'%BLEUAvg)
+    # print('WordNUM %f'%wordNumAvg)
+    # print('WordIDF %f'%wordIdfAvg)
+generate_ALL('F:\\python\\Result_RP\\result.json')
 # generate_BLEU('result.json')
 # generate_ROUGE('result.json')
