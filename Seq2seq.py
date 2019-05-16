@@ -487,7 +487,9 @@ class Main:
                         state = np.transpose(state,[1,0,2])
                         wordList.append(genWord)
 
-                    gen = ' '.join(wordList)
+                    gen = ''.join(wordList)
+                    line = ''.join(line)
+                    line = line.replace(' ', '')
                     print(gen)
                     print(line)
                     print(keyWord)
@@ -508,7 +510,7 @@ class Main:
                     print("[INFO] 强行停止验证 开始保存结果")
 
                     break
-                json.dump(generateResult,resFile,ensure_ascii=False)
+            json.dump(generateResult,resFile,ensure_ascii=False)
 
 if __name__ == '__main__':
 
