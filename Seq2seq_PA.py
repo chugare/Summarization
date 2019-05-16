@@ -303,6 +303,7 @@ class Model:
                                     clear_after_read=False, tensor_array_name='Mask_ta')
 
             # PA_weight = 1/(PA_weight+1)
+            PA_weight = tf.constant(-3.0,tf.float32,shape=[self.WordNum])
             ProbDecay = preWord * PA_weight
             ProbDecay = tf.squeeze(ProbDecay)
             _,new_state,outputTA,maskTa =  loopOpt(0,runState,outputTA,maskTa)
@@ -311,7 +312,7 @@ class Model:
             res = tf.tensordot(outputTensor,outWeight,[-1,0])
             # new_output = new_output*mask
             res = tf.squeeze(res)
-            res = res + ProbDecay*(0.5)
+            res = res + ProbDecay*(1.0)
             resProb = tf.nn.softmax(res)
             ops = {
                 'SentenceVector': SentenceVector,
