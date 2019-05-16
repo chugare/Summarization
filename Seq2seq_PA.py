@@ -512,6 +512,7 @@ class Main:
 
                     gen = ''.join(wordList)
                     line = ''.join(line)
+                    line = line.replace(' ','')
                     print(gen)
                     print(line)
                     print(keyWord)
