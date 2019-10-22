@@ -6,9 +6,9 @@ import time
 import json
 import numpy as np
 import tensorflow as tf
-from  Tool import  Tf_idf
-from DataPipe import DictFreqThreshhold, WordVec
-from Meta import Meta
+from util.Tool import  Tf_idf
+from data_util.dataPipe import DictFreqThreshhold, WordVec
+from meta.Meta import Meta
 
 class Meta_l(Meta):
 

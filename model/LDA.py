@@ -1,8 +1,9 @@
-from gensim import corpora,models,similarities
+from gensim import models
 import sys
-import DataPipe
+from data_util import dataPipe
 import random
-import logging
+
+
 # logging.basicConfig(level=logging.INFO)
 class LDA_Train:
     def __init__(self,**kwargs):
@@ -18,7 +19,7 @@ class LDA_Train:
     def lda_build(self):
         text = open(self.SourceFile,'r',encoding='utf-8')
         text_set = [line.split(' ') for line in text]
-        dic = DataPipe.DictFreqThreshhold(DictName = self.DictName)
+        dic = dataPipe.DictFreqThreshhold(DictName = self.DictName)
         # ddic = corpora.Dictionary(text_set)
 
         corpus = [dic.doc2bow(line) for line in text_set]
@@ -30,7 +31,7 @@ class LDA_Train:
         lda.save(self.TaskName+'_model')
     def read_lda(self):
         lda = models.LdaModel.load(self.TaskName+'_model')
-        dic = DataPipe.DictFreqThreshhold(DictName = self.DictName)
+        dic = dataPipe.DictFreqThreshhold(DictName = self.DictName)
         for i in range(lda.num_topics):
             tl = lda.get_topic_terms(i)
             res = []

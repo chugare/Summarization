@@ -2,14 +2,11 @@ import xml.etree.ElementTree as ET
 import os
 import sys
 import re
-import jieba
 import jieba.posseg as pseg
-import numpy as np
 import math
 import json
-import random
 import time
-from DataPipe import WordVec
+from data_util.word2vector import WordVec
 thershold = 5
 
 def get_name(basename):

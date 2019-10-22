@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import random
-from DataPipe import DictFreqThreshhold,WordVec
+from data_util.dataPipe import DictFreqThreshhold,WordVec
 def hierarchical_softmax(name,EncodingLength,):
     pass
 

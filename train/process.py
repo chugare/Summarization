@@ -1,16 +1,14 @@
-import Tool
-import LDA
 import os,time,logging,sys
-import DataPipe,Models
-from Meta import  Meta
+from data_util import dataPipe
+from model import Models
+from meta.Meta import  Meta
 import rouge
-import numpy as np
 import tensorflow as tf
 def run_train_task(**kwargs):
     TaskName = kwargs['TaskName']
     epochSize = kwargs['EpochSize']
     logInterval = kwargs['LogInterval']
-    dataPipe = DataPipe.DataPipe(**kwargs)
+    dataPipe = dataPipe.DataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
     inputPipe = dataPipe.read_TFRecord(model.BatchSize)
     ops = model.build_model_pipe(mode='train',input = inputPipe)
@@ -106,7 +104,7 @@ def run_eval_task_selmap(**kwargs):
     TaskName = kwargs['TaskName']
     evalCaseNum = kwargs['EvalCaseNum']
 
-    dataPipe = DataPipe.DataPipe(**kwargs)
+    dataPipe = dataPipe.DataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
     dataProvider = dataPipe.pipe_data_for_eval(**kwargs)
 
@@ -184,7 +182,7 @@ def run_eval_task_gen(**kwargs):
     TaskName = kwargs['TaskName']
     evalCaseNum = kwargs['EvalCaseNum']
 
-    dataPipe = DataPipe.DataPipe(**kwargs)
+    dataPipe = dataPipe.DataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
     dataProvider = dataPipe.pipe_data_for_eval(**kwargs)
 
@@ -269,13 +267,3 @@ def run_eval_task_gen(**kwargs):
         res = rouge.Rouge().get_scores(hyps=hyps, refs=refs,avg=True)
         print(res)
 
-if __name__ == '__main__':
-    args = sys.argv
-    if args[1] == 'train':
-        meta = Meta().get_meta()
-        run_train_task(**meta)
-    elif args[1] == 'eval':
-        meta = Meta(ReadNum=800000).get_meta()
-
-        run_eval_task_gen(**meta)
-        pass

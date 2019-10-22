@@ -1,9 +1,10 @@
-import nltk
 from nltk.translate.bleu_score import sentence_bleu
 import json
 import rouge
 import jieba
-import Tool
+from util import Tool
+
+
 def generate_BLEU(fname):
     score_sum = 0
     dfile = open(fname,'r',encoding='utf-8')

@@ -6,8 +6,8 @@ import time
 
 import numpy as np
 import tensorflow as tf
-from Tool import Tf_idf
-from DataPipe import DictFreqThreshhold, WordVec
+from util.Tool import Tf_idf
+from data_util.dataPipe import DictFreqThreshhold, WordVec
 
 
 class Meta:

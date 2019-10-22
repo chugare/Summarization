@@ -1,7 +1,4 @@
-import jieba
 import tensorflow as tf
-import sys
-from jieba import posseg
 import  numpy as np
 def w():
     writer = tf.python_io.TFRecordWriter('DP_TFR.tfrecord')
@@ -76,8 +73,6 @@ import random
 m = [random.randint(0,1999) for i in range(10)]
 m.sort(reverse= True)
 print(m)
-import Tool
-import jieba
 t = 'abc.txt'
 a = t.replace('.txt','.char')
 print(a)

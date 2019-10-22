@@ -1,0 +1,37 @@
+SourceFile	DP.txt
+TaskName	DP
+Name	DP_gen
+DictName	DP_DICT.txt
+DictSize	80000
+
+Epoch	10
+EpochSize	100000
+BatchSize	128
+KeyWordNum	5
+VecSize	300
+ContextLen	10
+HiddenUnit	800
+RNNUnitNum	800
+
+KernelSize	5
+KernelNum	800
+TopicNum	30
+FlagNum	60
+TopicVec	10
+FlagVec	20
+ContextVec	400
+
+WordNum	80000
+L2NormValue	0.02
+DropoutProb	0.7
+GlobalNorm	0.5
+LearningRate	0.001
+HidderLayer	3
+LRDecayRate	0.8
+
+
+ReadNum	10
+LogInterval	10
+EvalCaseNum	40
+MaxSentenceLength	100
+BeamSize	5
