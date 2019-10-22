@@ -1,5 +1,5 @@
-
-
+from util.redis_util import save_value,get_value,init
+import numpy as np
 class WordVec:
     def __init__(self,**kwargs):
         self.vec_dic = {}
