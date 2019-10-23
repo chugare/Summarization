@@ -1,4 +1,12 @@
 
+import jieba
+import numpy as np
+import random
+import tensorflow as tf
+import re
+import json
+import sys
+import os
 
 
 class DictFreqThreshhold:
@@ -21,6 +29,7 @@ class DictFreqThreshhold:
         self.DictSize = min(len(self.N2GRAM),self.DictSize)
         self.HuffmanEncoding()
         # print(max(self.N2HUFF, key=lambda k:len(self.N2HUFF[k])))
+
     def read_dic(self):
         try:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
@@ -75,6 +84,8 @@ class DictFreqThreshhold:
             freq = self.N2FREQ[k]
             tmp_dic.write('%d %s %s %d\n'%(count,w,f,freq))
             count += 1
+
+
     def doc2bow(self,doc):
         if isinstance(doc,list):
             wordSet = doc

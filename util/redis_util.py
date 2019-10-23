@@ -21,7 +21,6 @@ def save_value(kv):
             print('[ERROR] Key %s inserted fail' % keys[i])
     et = time.time()
     dt = et-st
-    print(dt)
 def get_value(keys):
     pipe = r.pipeline()
     result = {}

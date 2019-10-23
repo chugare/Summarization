@@ -7,7 +7,7 @@ import json
 import numpy as np
 import tensorflow as tf
 from util.Tool import  Tf_idf
-from data_util.dataPipe import DictFreqThreshhold, WordVec
+from data_util.data_pipe import DictFreqThreshhold, WordVec
 from meta.Meta import Meta
 
 class Meta_l(Meta):

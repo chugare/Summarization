@@ -1,5 +1,5 @@
 import os,time,logging,sys
-from data_util import dataPipe
+from data_util import data_pipe
 from model import Models
 from meta.Meta import  Meta
 import rouge

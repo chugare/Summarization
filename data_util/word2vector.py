@@ -1,5 +1,8 @@
 from util.redis_util import save_value,get_value,init
 import numpy as np
+import sys, os, re, jieba
+import time
+from util.redis_util import init,save_value,get_value
 class WordVec:
     def __init__(self,**kwargs):
         self.vec_dic = {}
@@ -10,30 +13,41 @@ class WordVec:
         self.TaskName = ''
         self.SourceFile = ''
         self.VecFile = ""
-        print('[INFO] Start load word vector')
+        self.VecSize = 300
         for k in kwargs:
-            self.__setattr__(k,kwargs[k])
+            self.__setattr__(k, kwargs[k])
 
-        self.VecFile = self.SourceFile.replace('.txt', '.char')
-        self.VecFile = self.VecFile.replace('E_','')
-        try:
-            tmp = open(self.VecFile,mode='r',encoding='utf-8')
+    def init_wv_redis(self):
 
-            tmp.close()
-        except Exception:
-            print(self.VecFile)
-            self.VecFile = 'word_vec.char'
+        print('[INFO] Start load word vector')
+        st = time.time()
+        init()
+        vec_file = open('/home/user/zsm/data/sgns.merge.char','r',encoding='utf-8')
+        count = 0
+        vec_dict = {}
+        for l in vec_file:
 
-        pass
-        self._read_vec()
-    def dump_file(self):
-        file = open('word_vec.char','w',encoding='utf-8')
-        # file.write(str(self.num)+' 300\n')
-        for w in self.vec_dic:
-            vec_f = [str(i) for i in self.vec_dic[w]]
-            vec_str = ' '.join(vec_f)
-            file.write(w+' '+vec_str+'\n')
-        file.close()
+            m = l.strip().split(' ')
+            w = m[0]
+            try:
+                vec =[float(v) for v in m[1:]]
+            except ValueError:
+                vec =[float(v.replace(')','-')) for v in m[1:]]
+            count+=1
+            vec_dict[w] = vec
+            if count%10000 == 0:
+                save_value(vec_dict)
+                nt = time.time()
+                sys.stdout.write('\r[INFO] Load vec data, %d finished, time cost %.3f' % (count, nt-st))
+                vec_dict = {}
+            if count == self.ReadNum:
+                break
+        save_value(vec_dict)
+        nt = time.time()
+        print('\n[INFO] Vec data loaded, total time cost %.3f'%(nt-st))
+        self.num = count
+
+
     def SimplifiedByText(self,Name,wordlist):
         file = open('%s.char'%Name,'w',encoding='utf-8')
         # file.write(str(self.num)+' 300\n')
@@ -91,78 +105,20 @@ class WordVec:
             file.write(l)
             # vec_dic[w] = vec
         print('\n Final count : %d'%count)
-    def _read_vec(self):
-        path = os.path.abspath('.')
-        print(path)
-        # path = '/'.join(path.split('\\')[:-1])+'/sgns.merge.char'
-        # path = 'F:/python/word_vec/sgns.merge.char'
-        # path = 'D:\\赵斯蒙\\EVI-fact\\word_vec.char'
-        path = self.VecFile
-        vec_file = open(path,'r',encoding='utf-8')
-        # meg = next(vec_file).split(' ')
-        # num = int(meg[0])
-        # self.num = num
-        count = 0
-        for l in vec_file:
 
-            m = l.strip().split(' ')
-            w = m[0]
-            vec = m[1:]
-            try:
-                vec =[float(v) for v in m[1:]]
-            except ValueError:
-                vec =[float(v.replace(')','-')) for v in m[1:]]
-            # if WORD_VEC.ulw(w):
-            #     continue
-            count+=1
-            if count%10000 == 0:
-                sys.stdout.write('\r[INFO] Load vec data, %d finished'%count)
-            if count == self.ReadNum:
-                break
-            self.vec_list.append(vec)
-            self.word_list.append(w)
-            self.vec_dic[w] = np.array(vec,dtype=np.float32)
 
-        print('\n[INFO] Vec data loaded')
-        self.num = count
-    def get_min_word(self,word):
-        vec = self.vec_dic[word]
-        dis = cosine_similarity(self.vec_list,[vec])
-        dis = np.reshape(dis,[-1])
-        dis_pair = [(i,dis[i]) for i in range(len(dis))]
-        dis_pair.sort(key= lambda x:x[1],reverse=True)
-        for i in range(10):
-            print(self.word_list[dis_pair[i][0]])
-
-    def get_min_word_v(self, vec):
-        dis = cosine_similarity(self.vec_list, [vec])
-        dis = np.reshape(dis, [-1])
-        i = np.argmax(dis)
-        return self.word_list[i]
-    def get_sentence(self,vlist,l):
-        result = ''
-        x = 0
-        for vec in vlist:
-            if x == l:
-                break
-            print('[INFO] Search for nearest word on index %d'%x)
-            dis = cosine_similarity(self.vec_list, [vec])
-            dis = np.reshape(dis, [-1])
-            i = np.argmax(dis)
-            x+= 1
-            print(self.word_list[i])
-            result += self.word_list[i]
-
-        return result
     def sen2vec(self,sen):
         sen = jieba.lcut(sen)
+        tmp_dict = get_value(sen)
         vec_out = []
         for w in sen:
-            if w in self.vec_dic:
-                vec_out.append(self.vec_dic[w])
+            if tmp_dict[w]:
+                vec_out.append(tmp_dict[w])
+            else:
+                vec_out.append(np.zeros([self.VecSize],np.float32))
         return vec_out
     def get_vec(self,word):
         try:
-            return self.vec_dic[word]
+            return get_value([word])
         except KeyError:
-            return np.zeros([len(self.vec_list[0])])
+            return np.zeros([self.VecSize])

@@ -1,6 +1,6 @@
 from gensim import models
 import sys
-from data_util import dataPipe
+from data_util import data_pipe
 import random
 
 
@@ -19,7 +19,7 @@ class LDA_Train:
     def lda_build(self):
         text = open(self.SourceFile,'r',encoding='utf-8')
         text_set = [line.split(' ') for line in text]
-        dic = dataPipe.DictFreqThreshhold(DictName = self.DictName)
+        dic = data_pipe.DictFreqThreshhold(DictName = self.DictName)
         # ddic = corpora.Dictionary(text_set)
 
         corpus = [dic.doc2bow(line) for line in text_set]
@@ -31,7 +31,7 @@ class LDA_Train:
         lda.save(self.TaskName+'_model')
     def read_lda(self):
         lda = models.LdaModel.load(self.TaskName+'_model')
-        dic = dataPipe.DictFreqThreshhold(DictName = self.DictName)
+        dic = data_pipe.DictFreqThreshhold(DictName = self.DictName)
         for i in range(lda.num_topics):
             tl = lda.get_topic_terms(i)
             res = []
