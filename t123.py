@@ -70,12 +70,7 @@ def kk(**kwargs):
 # r()
 #
 import random
-m = [random.randint(0,1999) for i in range(10)]
-m.sort(reverse= True)
-print(m)
-t = 'abc.txt'
-a = t.replace('.txt','.char')
-print(a)
+
 # var1 = tf.placeholder(shape=[50],dtype=tf.float32)
 # val = np.arange(50)
 # vart = tf.reshape(var1,[5,2,5])
@@ -94,3 +89,11 @@ print(a)
 #         var1:val
 #     })
 #     print(p)
+
+inp = []
+for i in range(5):
+    v = [i for _ in range(300)]
+    inp.append(v)
+t = np.array(inp)
+avg = np.average(t,0)
+print(avg)

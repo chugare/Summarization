@@ -7,6 +7,7 @@ import math
 import json
 import time
 from data_util.word2vector import WordVec
+import setting
 thershold = 5
 
 def get_name(basename):
@@ -100,7 +101,7 @@ class Tf_idf:
         self.idf = {}
         self.FileName = doc_file
         try:
-            _data_file = open('_tfidf_meta.json','r',encoding='utf-8')
+            _data_file = open(setting.DATA_PATH+'_tfidf.json','r',encoding='utf-8')
             _data_t = json.load(_data_file)
             self.GRAM2N = _data_t['G']
             self.N2GRAM = {int(k):_data_t['N'][k] for k in _data_t['N']}
@@ -117,7 +118,7 @@ class Tf_idf:
                 self.idf[wd[1]] = 0.0
             ga = self.read_doc_all()
             self.idf_calc(ga)
-            _data_file = open('_tfidf_meta.json','w',encoding='utf-8')
+            _data_file = open(setting.DATA_PATH+'_tfidf.json','w',encoding='utf-8')
             obj = {
                 'G':self.GRAM2N,
                 'N':self.N2GRAM,
@@ -139,7 +140,7 @@ class Tf_idf:
             for w in tmp_idf:
                 if w in self.idf:
                     self.idf[w] += 1
-            if int(doc_num) % 100 == 0:
+            if int(doc_num) % 10000 == 0:
                 print('[INFO] %d of doc read'%doc_num)
         print('[INFO] All docs have been read')
         for w in self.idf:

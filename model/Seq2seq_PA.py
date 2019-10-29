@@ -7,7 +7,9 @@ import json
 import numpy as np
 import tensorflow as tf
 from util.Tool import  Tf_idf
-from data_util.data_pipe import DictFreqThreshhold, WordVec
+from data_util.dictionary import DictFreqThreshhold
+from data_util.word2vector import WordVec
+import setting
 from meta.Meta import Meta
 
 class Meta_l(Meta):
@@ -30,7 +32,10 @@ class Data:
         self.MaxSentenceSize = 100
         for k in kwargs:
             self.__setattr__(k,kwargs[k])
-        self.Dict  = DictFreqThreshhold(DictName = self.DictName,DictSize = self.DictSize)
+
+        self.DictName = self.DictName
+        self.SourceFile = setting.DATA_PATH+self.SourceFile
+        self.Dict = DictFreqThreshhold(DictName = self.DictName,DictSize = self.DictSize)
         self.WordVectorMap = WordVec(**kwargs)
         # lda = LDA.LDA_Train(TaskName = self.TaskName,SourceFile = self.SourceFile,DictName = self.DictName)
         # self.LdaMap = lda.getLda()
@@ -78,17 +83,20 @@ class Data:
             if len(ref_words)<self.KeyWordNum:
                 continue
 
-            ref_word = {k: self.WordVectorMap.get_vec(k) for k in ref_words}
-            wordVecList.append(list(ref_word.values())[0])
+            ref_word = self.WordVectorMap.get_vec(ref_words)
+            ref_avg_vector = np.average(np.array(list(ref_word.values())),0)
+            wordVecList.append(ref_avg_vector) #在第一个正常单词之前输入一个参考的单词，表示文章的第一输入
+            word_maps = self.WordVectorMap.get_vec(words)
             for word in words:
                 currentWordId, flag = self.Dict.get_id_flag(word)
                 if currentWordId < 0:
+                    continue
                     # 生成单词不从自定义单词表中选择的情况
-                    currentWordId = random.randint(0, self.DictSize - 1)
-                    # topic = self.LdaMap[currentWordId]
-                    # flag = self.Dict.WF2ID[self.Dict.N2WF[currentWordId]]
-                    word = self.Dict.N2GRAM[currentWordId]
-                wordVec = self.WordVectorMap.get_vec(word)
+                    # currentWordId = random.randint(0, self.DictSize - 1)
+                    # # topic = self.LdaMap[currentWordId]
+                    # # flag = self.Dict.WF2ID[self.Dict.N2WF[currentWordId]]
+                    # word = self.Dict.N2GRAM[currentWordId]
+                wordVec = word_maps[word]
                 wordVecList.append(wordVec)
                 wordList.append(currentWordId)
             if len(wordList)>self.MaxSentenceSize:
@@ -102,6 +110,9 @@ class Data:
             wordVecList = wordVecList[:self.MaxSentenceSize]
             refMap = {}
             refVector = []
+
+            # 补全引用文本的数量
+
             for i, k in enumerate(ref_word):
                 refMap[k] = i
                 refVector.append(ref_word[k])
@@ -109,7 +120,7 @@ class Data:
                 refVector.append(np.zeros([self.VecSize]))
             # print(len(wordVecList))
             # print(len(refVector))2
-            yield wordVecList,refVector,wordList,wordLength,ref_words,line
+            yield np.array(wordVecList),np.array(refVector),wordList,wordLength,ref_words,line
 
     def batch_data(self,batchSize):
         gen = self.pipe_data()
@@ -541,35 +552,3 @@ class Main:
 
             json.dump(weightMap,weightfile,ensure_ascii=False)
             json.dump(generateResult,resFile,ensure_ascii=False)
-
-if __name__ == '__main__':
-
-    args = sys.argv
-
-    if len(args)>1:
-        meta = Meta(TaskName='DP_lite_pa', BatchSize=64,
-                         ReadNum=-1,
-                         WordNum = 10000,
-                         LearningRate=float(args[2]),
-                         EpochSize = 10000,
-                         Epoch = 100,
-                         SourceFile='DP_lite.txt',
-                         DictName="DP_lite_DICT.txt").get_meta()
-        if args[1] == 't':
-            Main().run_train(**meta)
-        elif args[1] == 'v':
-            meta['SourceFile'] = 'E_'+meta['SourceFile']
-            meta['BatchSize'] = 1
-            meta['MaxSentenceLength'] = 1
-            meta['EvalCaseNum'] = int(args[2])
-            Main().run_eval(**meta)
-
-
-    else:
-        meta = Meta(TaskName = 'DP_lite_pa',BatchSize = 64 ,ReadNum = -1,
-                    WordNum = 10000,
-                    LearningRate = 0.01,
-                    Epoch = 100,
-                    SourceFile='DP_lite.txt',
-                    DictName = "DP_lite_DICT.txt").get_meta()
-        Main().run_train(**meta)

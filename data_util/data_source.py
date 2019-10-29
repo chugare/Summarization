@@ -3,7 +3,7 @@ import jieba.posseg as pseg
 from data_util.word2vector import WordVec
 
 def TXT2TXT_extract(sourceFile, TaskName, dis_file=None,min_line = 50,
-                    evalSize=1000,threshold = 20):
+                    evalSize=1000,threshold = 5):
     sourceFile = open(sourceFile, 'r', encoding='utf-8')
     if dis_file == None:
         dis_file = TaskName + ".txt"
@@ -121,6 +121,8 @@ def TXT2TXT_extract(sourceFile, TaskName, dis_file=None,min_line = 50,
         # else:
         #     if len(commentLine)!=0:
         #         try:
+        if countFile >= 1000000:
+            break
         commentLine = line
         commentLine = commentLine.replace('\n', '')
         if len(commentLine) < min_line:

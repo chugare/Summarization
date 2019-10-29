@@ -1,4 +1,4 @@
-
+import setting
 class Meta:
     def __init__(self,**kwargs):
         self.KeyWordNum = 5
@@ -78,7 +78,7 @@ class Meta:
     def get_meta_comb(meta_file_names):
         result = {}
         for meta_file_name in meta_file_names:
-            m_file = open(meta_file_name, 'r')
+            m_file = open(setting.META_PATH+meta_file_name, 'r')
             for line in m_file:
                 kv = line.strip().split('\t')
                 if len(kv) < 2:
@@ -114,6 +114,3 @@ class Meta:
         for k in self.__dict__:
             keys.append(k)
         print(keys)
-
-
-print(r)

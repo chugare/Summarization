@@ -3,10 +3,11 @@ import pickle
 import time
 import random
 r = redis.Redis(host='localhost', port=6379, db=0)
+r_miss = redis.Redis(host='localhost', port=6379, db=1)
+miss_key = {}
 
 def init():
     r.flushdb()
-
 
 def save_value(kv):
     pipe = r.pipeline(transaction=False)
@@ -23,20 +24,17 @@ def save_value(kv):
     dt = et-st
 def get_value(keys):
     pipe = r.pipeline()
+    # miss_pipe = r_miss.pipeline()
     result = {}
-    for k in keys:
-        result[k] = None
-    keys = list(result.keys())
-
     st = time.time()
     for i in keys:
         pipe.get(str(i))
     res = pipe.execute()
     for i, rr in enumerate(res):
         if not rr:
-            print('[ERROR] Key %s get fail' % keys[i])
+            miss_key[keys[i]] = miss_key.get(keys[i],0)+1
         else:
             result[keys[i]] = pickle.loads(rr)
-    dt = time.time()-st
-    print(dt)
+    # dt = time.time()-st
     return result
+

@@ -2,7 +2,7 @@ from util.redis_util import save_value,get_value,init
 import numpy as np
 import sys, os, re, jieba
 import time
-from util.redis_util import init,save_value,get_value
+from util.redis_util import init,save_value,get_value,miss_key
 class WordVec:
     def __init__(self,**kwargs):
         self.vec_dic = {}
@@ -13,8 +13,11 @@ class WordVec:
         self.TaskName = ''
         self.SourceFile = ''
         self.VecFile = ""
+
         self.VecSize = 300
+        self.miss_key = miss_key
         for k in kwargs:
+
             self.__setattr__(k, kwargs[k])
 
     def init_wv_redis(self):
@@ -118,7 +121,16 @@ class WordVec:
                 vec_out.append(np.zeros([self.VecSize],np.float32))
         return vec_out
     def get_vec(self,word):
-        try:
-            return get_value([word])
-        except KeyError:
-            return np.zeros([self.VecSize])
+        if isinstance(word,list):
+            word_map = get_value(word)
+            for w in word:
+                if w not in word_map:
+                    word_map[w] = np.zeros([self.VecSize])
+            return word_map
+        else:
+            word_map = get_value(word)
+            if word_map:
+
+                return get_value([word])
+            else:
+                return {word:np.zeros([self.VecSize])}

@@ -1,0 +1,8 @@
+TaskName	DP_pa
+BatchSize	64
+WordNum	10000
+LearningRate	0.01
+EpochSize	10000
+Epoch	100
+SourceFile	DP.txt
+DictName	DP_DICT.txt
