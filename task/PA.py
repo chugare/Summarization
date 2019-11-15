@@ -14,3 +14,12 @@ def run():
         '重复惩罚.meta'
     ])
     Main().run_train(**meta)
+def eval():
+    meta = Meta().get_meta_comb([
+        'LDA.meta',
+        'MODEL.meta',
+        'seq2seq.meta',
+        'train.meta',
+        '重复惩罚.meta'
+    ])
+    Main().run_eval(**meta)

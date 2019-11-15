@@ -60,6 +60,8 @@ class Data:
         self.FlagWordMat = []
         for i in range(wordNum):
             ftmp = np.zeros(flagNum)
+            if i not in self.Dict.N2WF:
+                continue
             ftmp[self.Dict.WF2ID[self.Dict.N2WF[i]]] = 1
             ttmp = np.zeros(topicNum)
             # topic = self.LdaMap[i]
