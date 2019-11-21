@@ -8,7 +8,7 @@ def run_train_task(**kwargs):
     TaskName = kwargs['TaskName']
     epochSize = kwargs['EpochSize']
     logInterval = kwargs['LogInterval']
-    dataPipe = data_pipe.DataPipe(**kwargs)
+    dataPipe = data_pipe.DPDataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
     inputPipe = dataPipe.read_TFRecord(model.BatchSize)
     ops = model.build_model_pipe(mode='train',input = inputPipe)
@@ -104,7 +104,7 @@ def run_eval_task_selmap(**kwargs):
     TaskName = kwargs['TaskName']
     evalCaseNum = kwargs['EvalCaseNum']
 
-    dataPipe = data_pipe.DataPipe(**kwargs)
+    dataPipe = data_pipe.DPDataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
     dataProvider = dataPipe.pipe_data_for_eval(**kwargs)
 
@@ -182,7 +182,7 @@ def run_eval_task_gen(**kwargs):
     TaskName = kwargs['TaskName']
     evalCaseNum = kwargs['EvalCaseNum']
 
-    dataPipe = data_pipe.DataPipe(**kwargs)
+    dataPipe = data_pipe.DPDataPipe(**kwargs)
     model = Models.unionGenerator(**kwargs)
     dataProvider = dataPipe.pipe_data_for_eval(**kwargs)
 

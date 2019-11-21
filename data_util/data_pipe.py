@@ -26,7 +26,33 @@ class Reader:
     def __init__(self):
         pass
 
-class DataPipe:
+
+class NewsDatapipe:
+    def __init__(self):
+
+        self.TaskName = 'NEWS'
+        self.DictName = "NEWS_DICT.txt"
+
+        for k in kwargs:
+            self.__setattr__(k, kwargs[k])
+        self.Dict = DictFreqThreshhold(DictName=self.DictName, DictSize=self.DictSize)
+        self.WordVectorMap = WordVec(**kwargs)
+
+        self.DictSize = self.Dict.DictSize
+        self.get_word_mat()
+
+
+
+
+
+
+
+
+
+
+
+
+class DPDataPipe:
 
     def __init__(self,**kwargs):
         self.SourceFile = 'DP.txt'

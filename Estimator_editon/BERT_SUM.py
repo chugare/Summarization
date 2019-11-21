@@ -166,7 +166,7 @@ class Model:
         def bert_sum_fn(features, labels, mode, params):
             is_training = (mode == tf.estimator.ModeKeys.TRAIN)
 
-            
+
             model = BertModel(
                 config=self.BertConfig,
                 is_training=is_training,
