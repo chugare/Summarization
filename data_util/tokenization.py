@@ -7,11 +7,10 @@ class tokenization:
     def __init__(self, DictName , DictSize = 1000000000):
         self.GRAM2N = {}
         self.N2GRAM = {}
-        self.freq_threshold = 0
         self.wordvec = None
         self.ULSW = ['\n', '\t',' ','']
         self.DictName = DictName
-        self.DictSize =  DictSize
+        self.DictSize = DictSize
         self.read_dic()
         self.DictSize = min(len(self.N2GRAM),self.DictSize)
 
@@ -31,7 +30,7 @@ class tokenization:
                 self.N2GRAM[wordIndex] = word
 
                 wordCount += 1
-                if self.DictSize  and wordCount >= self.DictSize:
+                if self.DictSize and wordCount >= self.DictSize:
                     break
         except FileNotFoundError:
             print('[INFO] 未发现对应的*_DIC.txt文件，需要先生成字典，完毕之后重新运行程序即可')
@@ -55,9 +54,21 @@ class tokenization:
 
 
     def tokenize(self,sentence):
-        return [self.GRAM2N[word] for word in sentence]
+
+        res = [self.GRAM2N.get(word,0) for word in sentence]
+        res.append(1)
+        return res
 
     def padding(self, sequences, max_length):
+        new_seqs = []
+        for seq in sequences:
+            if len(seq)<max_length:
+                list(seq).extend([0]*(max_length-len(seq)))
+            else:
+                seq = seq[:max_length]
+                seq[-1] = [1]
+            new_seqs.append(seq)
+        return new_seqs
 
 
     def get(self,id):
@@ -72,12 +83,6 @@ class tokenization:
         else:
             return -1
 
-    def get_id_flag(self,word):
-        if word in self.GRAM2N:
-            id = self.GRAM2N[word]
-            return id,self.WF2ID[self.N2WF[id]]
-        else:
-            return -1,-1
     def get_sentence(self, indexArr,cutSize = None):
 
         res = ''

@@ -189,7 +189,10 @@ class NewsDatasetBuilder(DatasetBuilder):
         count = 0
         for line in self.source:
             obj = json.loads(line)
-            yield count, obj['content']+' '+ obj['desc']
+            obj['content'].replace("#",'')
+            obj['desc'].replace("#",'')
+            obj['title'].replace("#",'')
+            yield count, obj['title']+'#'+obj['desc']+'#'+obj['content']
             count+=1
     def build_dataset(self):
 
@@ -220,26 +223,28 @@ class NewsDatasetBuilder(DatasetBuilder):
         dic_file = open(self.TaskName + '_DICT.txt', 'w', encoding='utf-8')
         BRD = BatchWriter(dic_file)
         # pos_file = open('POS.txt','w',encoding='utf-8')
-        count = 0
+        count = 2
         ULSW = ['\n', '\t', ' ', '']
         for i in ULSW:
             self.dic[i] = 0
-        for w in self.dic:
-            if self.dic[w] > self.threshold:
+        self.dic = sorted(self.dic.items(),key=lambda i:i[1],reverse=True)
+        BRD.write("%d %s %s %d" % (0, "<PAD>", "x", 0))
+        BRD.write("%d %s %s %d" % (1, "<EOS>", "x", 0))
+
+        for w , wordCount in self.dic:
+            if wordCount > self.threshold:
                 word_type = max(self.dic_pos[w], key=lambda x: self.dic_pos[w][x])
-                wordCount = self.dic[w]
                 BRD.write("%d %s %s %d" % (count, w, word_type, wordCount))
                 count += 1
         BRD.close()
         # pos_file.close()
-        print("[INFO] 读取完毕 共计 %d 文本 句子长度统计如下" % count)
+        print("[INFO] 读取完毕 共计 %d 单词 句子长度统计如下" % count)
         # for kv in enumerate(length_map):
         ll = sorted(self.length_map.keys(), key=lambda x: x)
         for k in ll:
             print("%d : %d" % (k, self.length_map[k]))
 
 class DPDatasetBuilder(DatasetBuilder):
-
 
     def read(self):
         countFile = 0
