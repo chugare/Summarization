@@ -302,33 +302,3 @@ class Transformer(tf.keras.Model):
 
 
 
-class TransformerGenerator:
-    def __init__(self, batch_size, max_length, vocab_size, num_heads, d_model):
-        self.num_heads = num_heads
-        self.d_model = d_model
-        self.batch_size = batch_size
-        self.vocab_size = vocab_size
-        self.max_length = max_length
-        self.position_code = [positional_encoding(i, d_model) for i in range(1000)]
-        self.drop_rate = 0.8
-        self.dff = 10
-        pass
-
-
-    def build_model_fn(self, input):
-        def model_fn(feature, labels, mode, params=None, config=None):
-            source_seqs = feature['source_seqs']
-            source_pad_mask = create_padding_mask(source_seqs)
-            context_seqs = feature['context_seqs']
-            context_length = feature['context_length']
-            context_pad_mask = create_padding_mask(context_seqs)
-            target_word = feature['target_word']
-
-            embedding_var = tf.get_variable('embedding_var', shape=[self.vocab_size, self.d_model], dtype=tf.float32,
-                                            initializer=tf.truncated_normal_initializer(stddev=0.2))
-
-            source_seqs_vec = tf.nn.embedding_lookup(embedding_var, source_seqs) + self.position_code
-            context_seqs_vec = tf.nn.embedding_lookup(embedding_var, context_seqs) + self.position_code
-
-
-            res_spec = tf.estimator.EstimatorSpec()

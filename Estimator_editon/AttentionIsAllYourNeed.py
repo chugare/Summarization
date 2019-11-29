@@ -24,7 +24,7 @@ def create_masks(inp, tar):
 def build_input_fn():
 
     def generator():
-        tokenizer = tokenization("./news_data/NEWS_DICT.txt",DictSize=100000)
+        tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
         source_file = queue_reader("NEWS","/home/user/zsm/Summarization/news_data")
         for line in source_file:
             example = line.split('#')
@@ -39,25 +39,27 @@ def build_input_fn():
             # for i,s in enumerate(title_sequence):
             #     label = s
             #     context = title_sequence[:i]
-            #
-            #     feature = {
-            #         'source':source_sequence,
-            #         'context':context
-            #     }
+            # #
+            # feature = {
+            #     'source':source_sequence,
+            #     'context':title_sequence
+            # }
             #     yield feature,label
             yield source_sequence,title_sequence
 
     def input_fn():
-        gen = generator()
-        ds = tf.data.Dataset().from_generator(gen)
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=(tf.int64,tf.int64),output_shapes=([1000],[100]))
+        ds = ds.batch(32).shuffle(1024)
         return ds
+    return input_fn
 
 
 
+def build_model_fn(lr = 0.01,num_layers=3,d_model=100,num_head=4,dff=2,input_vocab_size=100000,
+                            target_vocab_size=100000,
+                            pe_input=1000,pe_target=100):
 
-def build_model_fn():
-
-    learning_rate = 0.01
+    learning_rate = lr
 
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
         from_logits=True, reduction='none')
@@ -70,36 +72,39 @@ def build_model_fn():
 
     def model_fn(features,labels,mode,params):
 
-        source = features['source']
-        context = features['context']
+        # source = features['source']
+        # context = features['context']
+        source = features
+        context = labels
         tar_inp = context[:, :-1]
         tar_real = context[:, 1:]
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(source, context)
 
-        transformer = Transformer(num_layers= 3,
-                            d_model=100,
-                            num_heads=4,
-                            dff=2,
-                            input_vocab_size=100000,
-                            target_vocab_size=100000,
-                            pe_input=1000,pe_target=100)
+        transformer = Transformer(num_layers= num_layers,
+                            d_model=d_model,
+                            num_heads=num_head,
+                            dff=dff,
+                            input_vocab_size=input_vocab_size,
+                            target_vocab_size=target_vocab_size,
+                            pe_input=pe_input,pe_target=pe_target)
         training = mode == tf.estimator.ModeKeys.TRAIN
         with tf.GradientTape() as tape:
-            prediction,atte_weight = transformer(source,tar_inp,training, enc_padding_mask,
+            prediction, atte_weight = transformer(source,tar_inp,training, enc_padding_mask,
                   combined_mask, dec_padding_mask)
 
             loss = loss_function(tar_real,prediction)
+        gradients = tape.gradient(loss,transformer.trainable_variables)
         train_loss = tf.keras.metrics.Mean(name='train_loss')
         train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
             name='train_accuracy')
 
         optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98,
                                              epsilon=1e-9)
-        gradients = tape.gradient(loss,transformer.trainable_variables)
+        # = optimizer.minimize(lambda: loss,transformer.trainable_variables)
         train_op = optimizer.apply_gradients(zip(gradients,transformer.trainable_variables))
-        train_loss(loss)
+        # train_loss(loss)
         train_accuracy(tar_real, prediction)
-        return tf.estimator.EstimatorSpec(mode,prediction,loss,train_op)
+        return tf.estimator.EstimatorSpec(mode,prediction,loss,train_op,)
 
     return model_fn
 
@@ -121,6 +126,14 @@ class AttentionIsAllYourNeed(tf.estimator.Estimator):
 
 if __name__ == '__main__':
 
+
+    model_fn = build_model_fn()
+    trans = model_fn(None,None,None,None)
+    # estimator = tf.estimator.Estimator(model_fn,model_dir='./transformer')
+    # input_fn = build_input_fn()
+    # estimator.train(input_fn,max_steps=1000)
+    # #
+    #
 
 
 
