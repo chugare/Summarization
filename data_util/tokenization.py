@@ -59,16 +59,14 @@ class tokenization:
         res.append(1)
         return res
 
-    def padding(self, sequences, max_length):
-        new_seqs = []
-        for seq in sequences:
-            if len(seq)<max_length:
-                list(seq).extend([0]*(max_length-len(seq)))
-            else:
-                seq = seq[:max_length]
-                seq[-1] = [1]
-            new_seqs.append(seq)
-        return new_seqs
+    def padding(self, seq, max_length):
+        if len(seq) < max_length:
+            seq.extend([0] * (max_length - len(seq)))
+        else:
+            seq = seq[:max_length]
+            seq[-1] = 1
+
+        return seq
 
 
     def get(self,id):
