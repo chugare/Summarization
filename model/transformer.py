@@ -116,7 +116,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
 
-    def __call__(self, v, k, q, mask):
+    def call(self, v, k, q, mask):
         batch_size = tf.shape(q)[0]
 
         q = self.wq(q)  # (batch_size, seq_len, d_model)
@@ -300,5 +300,10 @@ class Transformer(tf.keras.Model):
         final_output = self.final_layer(dec_output)  # (batch_size, tar_seq_len, target_vocab_size)
         return final_output, attention_weights
 
+if __name__ == '__main__':
 
+    transformer = Transformer(2,100,4,2,100000,10000,1000,100)
+    transformer.compile(optimizer='adam',
+                  loss='sparse_categorical_crossentropy',
+                  metrics=['accuracy'])
 

@@ -17,7 +17,13 @@ class tokenization:
     def read_dic(self):
         try:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
-            wordCount = 0
+            wordCount = 2
+
+            self.GRAM2N['SOS'] = 1
+            self.N2GRAM[1] = 'SOS'
+
+            self.GRAM2N['PAD'] = 0
+            self.N2GRAM[0] = 'PAD'
             for line in dic_file:
                 wordInfo = line.split(' ')
                 if len(wordInfo)<1:
@@ -25,9 +31,9 @@ class tokenization:
                 word = wordInfo[1]
                 if word in self.ULSW:
                     continue
-                wordIndex = int(wordInfo[0].strip())
-                self.GRAM2N[word] = wordIndex
-                self.N2GRAM[wordIndex] = word
+                # wordIndex = int(wordInfo[0].strip())
+                self.GRAM2N[word] = wordCount
+                self.N2GRAM[wordCount] = word
 
                 wordCount += 1
                 if self.DictSize and wordCount >= self.DictSize:
