@@ -27,22 +27,23 @@ def create_masks(inp, tar):
 
     return enc_padding_mask, combined_mask, dec_padding_mask
 
-def build_input_fn():
+def build_input_fn(name,data_set):
 
     def generator():
         tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
-        source_file = queue_reader("NEWS","/home/user/zsm/Summarization/news_data")
+        source_file = queue_reader(name,data_set)
         for line in source_file:
-            example = line.split('#')
-            title = example[0]
-            desc = example[1]
-            content = example[2]
-            title = ''.join(title)
-            content = ''.join(content)
-            source_sequence = tokenizer.tokenize(content)
-            source_sequence = tokenizer.padding(source_sequence,1000)
-            title_sequence = tokenizer.tokenize(title)
-            title_sequence = tokenizer.padding(title_sequence,100)
+            try:
+                example = line.split('#')
+                title = example[0]
+                desc = example[1]
+                content = example[2]
+                title = ''.join(title)
+                content = ''.join(content)
+                source_sequence = tokenizer.tokenize(content)
+                source_sequence = tokenizer.padding(source_sequence,1000)
+                title_sequence = tokenizer.tokenize(title)
+                title_sequence = tokenizer.padding(title_sequence,100)
             # for i,s in enumerate(title_sequence):
             #     label = s
             #     context = title_sequence[:i]
@@ -52,8 +53,9 @@ def build_input_fn():
             #     'context':title_sequence
             # }
             #     yield feature,label
-            yield source_sequence,title_sequence
-
+                yield source_sequence,title_sequence
+            except Exception:
+                continue
     def input_fn():
         ds = tf.data.Dataset.from_generator(generator=generator,output_types=(tf.int64,tf.int64),output_shapes=([1000],[100]))
         ds = ds.shuffle(8192).batch(32).cache().repeat()
@@ -167,7 +169,7 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
                 self.count += 1
                 # a = np.mean(run_values.results['accuracy'])
                 a = run_values.results['accuracy']
-                if self.count % 10   == 0:
+                if self.count % 1   == 0:
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
@@ -180,7 +182,7 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
         #     summary_op=tf.summary.
         # )
 
-        return tf.estimator.EstimatorSpec(mode,prediction,loss,train_op,training_hooks=[TransformerRunHook()])
+        return tf.estimator.EstimatorSpec(mode,prediction,loss,train_op,training_hooks=[TransformerRunHook()],eval_metric_ops=)
 
     return model_fn
 
@@ -221,19 +223,42 @@ if __name__ == '__main__':
     # g = generator()
     # for s,t in g:
     #     print(s)
+    def train():
+        model_fn = build_model_fn()
+        estimator = tf.estimator.Estimator(model_fn,model_dir='./transformer',)
+        input_fn = build_input_fn("NEWS", "/home/user/zsm/Summarization/news_data")
+
+        estimator.train(input_fn,max_steps=1000000)
+
+
+    def eval():
+        model_fn = build_model_fn()
+        estimator = tf.estimator.Estimator(model_fn, model_dir='./transformer', )
+        input_fn = build_input_fn("E_NEWS", "/home/user/zsm/Summarization/news_data")
+        class EvalRunHook(tf.estimator.SessionRunHook):
+            def __init__(self):
+                self.count = 0
+                self.start_time  = time.time()
+                self.ctime = time.time()
+
+            def after_run(self, run_context, run_values):
+
+                self.count += 1
+                # a = np.mean(run_values.results['accuracy'])
+                if self.count % 1   == 0:
+                    ntime = time.time()
+                    dtime = ntime - self.ctime
+                    self.ctime = ntime
+                    print("Batch {0} : time_cost - {1:.2f} : all_time_cost - {2:.2f}".format(self.count, dtime, ntime- self.start_time))
+                pass
+        # estimator.train(input_fn,max_steps=1000000)
+        estimator.evaluate(input_fn, 1000,hooks=[EvalRunHook()])
+        estimator.predict()
     #
-    print(sys.path)
-    model_fn = build_model_fn()
-    estimator = tf.estimator.Estimator(model_fn,model_dir='./transformer',)
-    input_fn = build_input_fn()
-
-
-
-    estimator.train(input_fn,max_steps=1000000)
-    #
     #
 
 
 
+    eval()
 
 
