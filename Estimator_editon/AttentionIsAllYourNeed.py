@@ -1,8 +1,14 @@
+
+import sys
+sys.path.append('/home/user/zsm/Summarization')
 import tensorflow as tf
 import numpy as np
 from data_util.tokenization import tokenization
 from util.file_utils import queue_reader
 from model.transformer import Transformer,create_look_ahead_mask,create_padding_mask
+import time
+
+
 
 
 def create_masks(inp, tar):
@@ -50,7 +56,7 @@ def build_input_fn():
 
     def input_fn():
         ds = tf.data.Dataset.from_generator(generator=generator,output_types=(tf.int64,tf.int64),output_shapes=([1000],[100]))
-        ds = ds.batch(32).shuffle(1024)
+        ds = ds.shuffle(8192).batch(32).cache().repeat()
         return ds
     return input_fn
 
@@ -71,6 +77,15 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
         mask = tf.cast(mask, dtype=loss_.dtype)
         loss_ *= mask
         return tf.reduce_mean(loss_)
+    def accuracy_function(real,pred):
+        train_accuracy = tf.keras.metrics.sparse_categorical_accuracy(real, pred)
+        mask = tf.math.logical_not(tf.math.equal(real, 0))
+        mask = tf.cast(mask, dtype=train_accuracy.dtype)
+
+        count = tf.reduce_sum(mask)+1
+        train_accuracy = tf.reduce_sum(train_accuracy * mask) / count
+        return train_accuracy
+
 
     def model_fn(features,labels,mode,params=None):
 
@@ -112,8 +127,9 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
               combined_mask, dec_padding_mask)
         loss = loss_function(tar_real,prediction)
         learning_rate = CustomSchedule(d_model)(global_step)
-        optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate)
-        new_global_step = global_step + 1
+        optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
+                                                     epsilon=1e-9)
+        # new_global_step = global_step + 1
 
         # gradients = tape.gradient(loss,transformer.trainable_variables)
         # train_loss = tf.keras.metrics.Mean(name='train_loss')
@@ -122,10 +138,18 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
 
         # optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98,
         #                                      epsilon=1e-9)
-        train_accuracy = tf.keras.metrics.sparse_categorical_accuracy(tar_real, prediction)
-        train_accuracy = tf.reduce_mean(train_accuracy)
-        train_op = optimizer.minimize(loss)
-        train_op = tf.group(train_op, [global_step.assign(new_global_step)])
+        train_accuracy = accuracy_function(tar_real, prediction)
+        grads = optimizer.compute_gradients(loss)
+        for grad, var in grads:
+            tf.summary.histogram(var.name + '/gradient', grad,global_step)
+        grad, var = zip(*grads)
+        tf.clip_by_global_norm(grad, 0.5)
+        grads = zip(grad, var)
+
+        train_op = optimizer.apply_gradients(grads, global_step=global_step)
+        # train_op = tf.group(train_op, [global_step.assign(new_global_step)])
+
+        tf.summary.scalar('accuracy',train_accuracy,global_step)
         # = optimizer.minimize(lambda: loss,transformer.trainable_variables)
         # train_op = optimizer.apply_gradients(zip(gradients,transformer.trainable_variables))
         # train_loss(loss)
@@ -133,17 +157,28 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
         class TransformerRunHook(tf.estimator.SessionRunHook):
             def __init__(self):
                 self.count = 0
-
+                self.start_time  = time.time()
+                self.ctime = time.time()
             def before_run(self, run_context):
                 return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate})
 
             def after_run(self, run_context, run_values):
+
                 self.count += 1
                 # a = np.mean(run_values.results['accuracy'])
                 a = run_values.results['accuracy']
-                if self.count % 10 == 0:
-                    print("Batch {0} : loss - {1:.6f} : accuracy - {2:.6f}".format(run_values.results['global_step'],run_values.results['loss'],a))
+                if self.count % 10   == 0:
+                    ntime = time.time()
+                    dtime = ntime - self.ctime
+                    self.ctime = ntime
+                    print("Batch {0} : loss - {1:.3f} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time))
                 pass
+        # summaryHook = tf.estimator.SummarySaverHook(
+        #     save_steps=10,
+        #     output_dir='./transformer/summary',
+        #     summary_writer=None,
+        #     summary_op=tf.summary.
+        # )
 
         return tf.estimator.EstimatorSpec(mode,prediction,loss,train_op,training_hooks=[TransformerRunHook()])
 
@@ -187,13 +222,14 @@ if __name__ == '__main__':
     # for s,t in g:
     #     print(s)
     #
-
-
+    print(sys.path)
     model_fn = build_model_fn()
     estimator = tf.estimator.Estimator(model_fn,model_dir='./transformer',)
     input_fn = build_input_fn()
 
-    estimator.train(input_fn,max_steps=10000)
+
+
+    estimator.train(input_fn,max_steps=1000000)
     #
     #
 
