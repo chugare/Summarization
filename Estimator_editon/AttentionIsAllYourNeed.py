@@ -27,7 +27,7 @@ def create_masks(inp, tar):
 
     return enc_padding_mask, combined_mask, dec_padding_mask
 
-def build_input_fn(name,data_set):
+def build_input_fn(name,data_set,batch_size = 32):
 
     def generator():
         tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
@@ -48,19 +48,54 @@ def build_input_fn(name,data_set):
             #     label = s
             #     context = title_sequence[:i]
             # #
-            # feature = {
-            #     'source':source_sequence,
-            #     'context':title_sequence
-            # }
+                feature = {
+                    'source':source_sequence,
+                    'context':title_sequence
+                }
             #     yield feature,label
-                yield source_sequence,title_sequence
+                yield feature,0
             except Exception:
                 continue
     def input_fn():
-        ds = tf.data.Dataset.from_generator(generator=generator,output_types=(tf.int64,tf.int64),output_shapes=([1000],[100]))
-        ds = ds.shuffle(8192).batch(32).cache().repeat()
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100]},[]))
+        ds = ds.shuffle(8192).batch(batch_size).cache().repeat()
         return ds
     return input_fn
+
+
+class pred_data_input:
+    def __init__(self,batch_size,name,data_set):
+        self.buffer = []
+        self.pos
+        self.name = name
+        self.data_set = data_set
+    def _get_generator(self):
+
+    def generator(self):
+        tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
+        source_file = queue_reader(self.name,self.data_set)
+        for line in source_file:
+            try:
+                example = line.split('#')
+                title = example[0]
+                desc = example[1]
+                content = example[2]
+                title = ''.join(title)
+                content = ''.join(content)
+                source_sequence = tokenizer.tokenize(content)
+                source_sequence = tokenizer.padding(source_sequence,1000)
+                title_sequence = tokenizer.tokenize(title)
+                title_sequence = tokenizer.padding(title_sequence,100)
+
+                feature = {
+                    'source':source_sequence,
+                    'context':title_sequence
+                }
+                #     yield feature,label
+                yield feature,0
+            except Exception:
+                continue
+
 
 
 
@@ -95,8 +130,9 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
         # context = features['context']
 
         global_step = tf.compat.v1.train.get_or_create_global_step()
-        source = features
-        context = labels
+        source = features['source']
+
+        context = features['context']
         tar_inp = context[:, :-1]
         tar_real = context[:, 1:]
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(source, tar_inp)
@@ -182,7 +218,7 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
         #     summary_op=tf.summary.
         # )
 
-        return tf.estimator.EstimatorSpec(mode,prediction,loss,train_op,training_hooks=[TransformerRunHook()],eval_metric_ops=)
+        return tf.estimator.EstimatorSpec(mode,{'target':prediction},loss,train_op,training_hooks=[TransformerRunHook()])
 
     return model_fn
 
@@ -234,7 +270,7 @@ if __name__ == '__main__':
     def eval():
         model_fn = build_model_fn()
         estimator = tf.estimator.Estimator(model_fn, model_dir='./transformer', )
-        input_fn = build_input_fn("E_NEWS", "/home/user/zsm/Summarization/news_data")
+        input_fn = build_input_fn("E_NEWS", "/home/user/zsm/Summarization/news_data",batch_size=32)
         class EvalRunHook(tf.estimator.SessionRunHook):
             def __init__(self):
                 self.count = 0
@@ -252,8 +288,11 @@ if __name__ == '__main__':
                     print("Batch {0} : time_cost - {1:.2f} : all_time_cost - {2:.2f}".format(self.count, dtime, ntime- self.start_time))
                 pass
         # estimator.train(input_fn,max_steps=1000000)
-        estimator.evaluate(input_fn, 1000,hooks=[EvalRunHook()])
-        estimator.predict()
+        # estimator.evaluate(input_fn, 1000,hooks=[EvalRunHook()])
+        res = estimator.predict(input_fn,predict_keys=['target'])
+        for i in res:
+
+            print(i)
     #
     #
 
