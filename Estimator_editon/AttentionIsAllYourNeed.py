@@ -8,6 +8,7 @@ from util.file_utils import queue_reader
 from model.transformer import Transformer,create_look_ahead_mask,create_padding_mask
 import time
 import threading
+import queue
 
 from interface.BeamSearch import Predictor
 
@@ -233,7 +234,7 @@ class Beamsearcher:
         self.predictor = predictor
         self.buffer = [] # 保存当前生成内容
         self.gen_len = 0 # 保存生成长度
-        self.next_topk = None
+        self.next_topk = queue.Queue(1)
         self.tokenizer = tokenizer
         self.gen_result = []
         self.max_count = max_count
@@ -276,9 +277,9 @@ class Beamsearcher:
 
     def do_search_mt(self,max_step):
         # buffer_lock = threading.RLock()
-        # result_lock = threading.RLock()
-        buffer_lock = threading.BoundedSemaphore(1)
-        result_lock = threading.BoundedSemaphore(self.topk)
+        # # result_lock = threading.RLock()
+        # buffer_lock = threading.Condition(1)
+        # result_lock = threading.BoundedSemaphore(self.topk)
 
         def fill_data(searcher):
             while len(searcher.gen_result) < searcher.max_count:
@@ -288,19 +289,22 @@ class Beamsearcher:
 
                     source = next(searcher.dataset)
                     searcher.source_input = source[:]
-                    searcher.gen_result.append(searcher.buffer)
+                    if searcher.gen_len == max_step:
+                        searcher.gen_result.append(searcher.buffer)
                     searcher.buffer = []
                     for i in range(searcher.topk):
                         searcher.buffer.append(([],0))
                     searcher.gen_len = 0
-                    searcher.next_topk = []
+                    searcher.next_topk = queue.Queue(1)
+                    searcher.context = queue.Queue(1)
                 else:
-                    result_lock.acquire()
                     tmp_buffer = []
-                    for i, val in enumerate(searcher.buffer):
+                    buffer = searcher.buffer
+                    next_topk = searcher.next_topk.get()
+                    for i, val in enumerate(buffer):
                         candidate,score = val
-                        for n in searcher.next_topk[i]:
-                            ts = searcher.next_topk[i][n]
+                        for n in next_topk[i]:
+                            ts = next_topk[i][n]
                             tc = candidate[:]
                             tc.append(n)
                             tmp_buffer.append((tc,score+ts))
@@ -309,25 +313,23 @@ class Beamsearcher:
                     tmp_buffer = tmp_buffer[:searcher.topk]
                     searcher.buffer = tmp_buffer
                     searcher.gen_len += 1
-                    searcher.next_topk = []
-                    result_lock.release()
-                print('产生数据')
 
                 context = []
+                print('第{0}步生成的内容：'.format(searcher.gen_len))
                 for seq in self.buffer:
                     # con_len.append(len(seq[0]))
                     context.append(self.tokenizer.padding(seq[0][:],max_step))
-                searcher.context = context
+                    print(searcher.tokenizer.get_sentence(seq[0][:]))
 
-                buffer_lock.release()
+                searcher.context.put(context)
+
 
         def data_generator():
             searcher = self
             while len(searcher.gen_result) < searcher.max_count:
-                buffer_lock.acquire()
+                context =  searcher.context.get()
                 # buffer_lock.wait(2)
-                for c in searcher.context:
-                    print('消费数据')
+                for c in context:
                     yield {'source':tf.constant(searcher.source_input),'context':tf.constant(c)}, tf.constant(0)
 
 
@@ -346,17 +348,17 @@ class Beamsearcher:
                 # result_lock.acquire()
                 res_v = []
                 res = next(pred)
-                print('生成下一步')
+                # print('生成下一步')
                 for i,v in enumerate(res['target']):
-                    vmap = v[searcher.gen_len]
+                    vmap = v[searcher.gen_len-1]
                     sort_res = np.argsort(vmap)[-searcher.topk:]
                     map_res = {}
                     for k in sort_res:
                         map_res[k] = vmap[k]
                     res_v.append(map_res)
-                searcher.next_topk = res_v
+
+                searcher.next_topk.put(res_v)
                 # result_lock.notify()
-                result_lock.release()
             # buffer_lock.release()
 
         producer = threading.Thread(target=fill_data,args=(self,))
@@ -366,12 +368,6 @@ class Beamsearcher:
 
         producer.join()
         consumer.join()
-
-
-
-
-
-
 
 if __name__ == '__main__':
 
