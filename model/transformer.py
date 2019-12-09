@@ -45,7 +45,7 @@ def create_padding_mask(seq):
 
 def create_look_ahead_mask(size):
     mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
-    return mask  # (seq_len, seq_len)def create_foresee_mask():
+    return mask  # (seq_len, seq_len)
 
 
 def point_wise_feed_forward_network(d_model, dff):
