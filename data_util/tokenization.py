@@ -18,12 +18,12 @@ class tokenization:
         try:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
             wordCount = 2
-
-            self.GRAM2N['SOS'] = 1
-            self.N2GRAM[1] = 'SOS'
-
-            self.GRAM2N['PAD'] = 0
-            self.N2GRAM[0] = 'PAD'
+            #
+            # self.GRAM2N['SOS'] = 1
+            # self.N2GRAM[1] = 'SOS'
+            #
+            # self.GRAM2N['PAD'] = 0
+            # self.N2GRAM[0] = 'PAD'
             for line in dic_file:
                 wordInfo = line.split(' ')
                 if len(wordInfo)<1:
@@ -61,7 +61,14 @@ class tokenization:
 
     def tokenize(self,sentence):
 
-        res = [self.GRAM2N.get(word,0) for word in sentence]
+
+        res = []
+        for word in sentence:
+            if word in self.GRAM2N:
+                res.append(self.GRAM2N[word])
+            else:
+                for w in word:
+                    res.append(self.GRAM2N.get(w,0))
         res.append(1)
         return res
 
@@ -150,3 +157,5 @@ class tokenization:
             else:
                 res[C - i - 1] = title[pos - i - 1]
         return res
+
+

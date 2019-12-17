@@ -41,8 +41,8 @@ def build_input_fn(name,data_set,batch_size = 32):
                 title = example[0]
                 desc = example[1]
                 content = example[2]
-                title = ''.join(title)
-                content = ''.join(content)
+                title = title.split(' ')
+                content = content.split(' ')
                 source_sequence = tokenizer.tokenize(content)
                 source_sequence = tokenizer.padding(source_sequence,1000)
                 title_sequence = tokenizer.tokenize(title)
@@ -174,7 +174,7 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
                 self.count += 1
                 # a = np.mean(run_values.results['accuracy'])
                 a = run_values.results['accuracy']
-                if self.count % 1   == 0:
+                if self.count % 10  == 0:
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
@@ -405,7 +405,7 @@ if __name__ == '__main__':
         estimator = tf.estimator.Estimator(model_fn,model_dir='./transformer',)
         input_fn = build_input_fn("NEWS", "/home/user/zsm/Summarization/news_data")
 
-        estimator.train(input_fn,max_steps=1000000)
+        estimator.train(input_fn,max_steps=10000000)
 
 
     def eval():
@@ -437,7 +437,7 @@ if __name__ == '__main__':
     #
     #
     def beamsearch():
-        tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
+        tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT_R.txt",DictSize=100000)
         source_file = queue_reader("E_NEWS", "/home/user/zsm/Summarization/news_data")
         predictor = TransformerPredictor(10)
         def _g():
@@ -449,6 +449,7 @@ if __name__ == '__main__':
         bs = Beamsearcher(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
         bs.do_search_mt(100)
 
+    # train()
 
     beamsearch()
 
