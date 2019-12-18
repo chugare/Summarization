@@ -2,13 +2,7 @@ import sys
 sys.path.append("/home/user/zsm/Summarization/")
 from data_util.news_2016.txt_builder import NewsDatasetBuilder
 
-from data_util.news_2016.db_util import
-
-
-
-if __name__ == '__main__':
-    # l = NewsDatasetBuilder(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
-    # l.build_dataset()
+def  mk_txt():
     dict_f = open('NEWS_DICT.txt','r',encoding='utf-8')
     single_dict_f = open('NEWS_DICT_SINGLE.txt','w',encoding='utf-8')
 
@@ -39,4 +33,9 @@ if __name__ == '__main__':
         c += 1
         if c>=100000:
             break
+
+if __name__ == '__main__':
+    # l = NewsDatasetBuilder(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
+    # l.build_dataset()
+
 

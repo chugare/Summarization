@@ -28,3 +28,6 @@ class NewsDatasetMysqlWriter(DatasetBuilder):
                 count +=1
                 MR.write(self.cut_with_comma(sentence))
         MR.close()
+
+
+def
