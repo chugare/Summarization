@@ -9,18 +9,9 @@ def connect_db():
                            database='news_2016',
                            charset='utf-8')
 
-
-def dt_write():
-    con = connect_db()
-    cur = con.cursor()
-    try:
-        sql_str = ("INSERT INTO t_forward_file (Ffile_name, Ffile_md5) VALUES ('%s', '%s')" % (file_name, file_md5))
-        cur.execute(sql_str)
-        con.commit()
-    except:
-        con.rollback()
-        logging.exception('Insert operation error')
-        raise
-    finally:
-        cur.close()
-        con.close()
+# def create_table():
+#
+#     con = connect_db()
+#     cur = con.cursor()
+#     try:
+#         sql = "create "
