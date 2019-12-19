@@ -10,3 +10,5 @@ ad,b,c = zip(*a)
 print(ad)
 print(b)
 print(c)
+a = 'aaa'
+print(a)

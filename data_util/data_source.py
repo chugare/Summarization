@@ -1,8 +1,5 @@
 import re
 import jieba.posseg as pseg
-from data_util.word2vector import WordVec
-import json
-from util.mysql_utils import dt_write
 def TXT2TXT_extract(sourceFile, TaskName, dis_file=None, min_line=50,
                     evalSize=1000, threshold=5):
     sourceFile = open(sourceFile, 'r', encoding='utf-8')

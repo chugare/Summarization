@@ -6,8 +6,8 @@ def connect_db():
                            port=3306,
                            user='root',
                            password='1234',
-                           database='news_2016',
-                           charset='utf-8')
+                           database='news2016',
+                           charset='utf8')
 
 # def create_table():
 #

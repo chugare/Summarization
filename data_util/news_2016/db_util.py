@@ -24,12 +24,13 @@ class MysqlWriter():
     def dt_write(self,values):
         cur = self.con.cursor()
         title, source, content = zip(*values)
+
         length = [len(i) for i in content]
+        val = zip(title , source, tuple(length),content)
         try:
-            cur.executemany("INSERT INTO news_obj (title, source, length, content) VALUES ('%s', '%s','%s','%s')",[title,source,length,content])
-            self.con.commit()
+            cur.executemany("INSERT INTO news_obj (title, source, length, content) VALUES (%s, %s, %s ,%s)", val )
+            res = self.con.commit()
         except:
-            self.con.rollback()
-            raise
+            print("[W] some data insert failed, but process continue")
         finally:
             cur.close()

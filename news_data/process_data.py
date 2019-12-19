@@ -1,6 +1,7 @@
 import sys
 sys.path.append("/home/user/zsm/Summarization/")
-from data_util.news_2016.txt_builder import NewsDatasetBuilder
+# from data_util.news_2016.txt_builder import NewsDatasetBuilder
+from data_util.news_2016.mysql_builder import NewsDatasetMysqlWriter
 
 def  mk_txt():
     dict_f = open('NEWS_DICT.txt','r',encoding='utf-8')
@@ -37,5 +38,6 @@ def  mk_txt():
 if __name__ == '__main__':
     # l = NewsDatasetBuilder(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
     # l.build_dataset()
-
+    l = NewsDatasetMysqlWriter(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
+    l.write_mysql()
 
