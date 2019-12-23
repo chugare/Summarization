@@ -5,14 +5,19 @@ import tensorflow as tf
 import numpy as np
 from data_util.tokenization import tokenization
 from util.file_utils import queue_reader
-from model.ABS import ABS
-import time
+from model.ABS import ABS,create_padding_mask
+import time,threading
+from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
+
+
+MODEL_PATH = './ABS'
+
 
 
 def build_input_fn(name,data_set,batch_size = 32,context_len = 10):
 
     def generator():
-        tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
+        tokenizer = tokenization("/root/zsm/Summarization/news_data_r/NEWS_DICT.txt",DictSize=100000)
         source_file = queue_reader(name,data_set)
         for line in source_file:
             try:
@@ -29,10 +34,10 @@ def build_input_fn(name,data_set,batch_size = 32,context_len = 10):
                 title_context = []
                 for i,s in enumerate(title_sequence):
                     if i > context_len:
-                        context = title_sequence[i-1-context_len:i-1]
+                        context = title_sequence[i-context_len:i]
                     else:
-                        context = [0]*(context_len-1-i)
-                        context = context.extend(title_sequence[:i-1])
+                        context = [0]*(context_len-i)
+                        context.extend(title_sequence[:i])
                     title_context.append(context)
                 feature = {
                     'source':source_sequence,
@@ -44,7 +49,7 @@ def build_input_fn(name,data_set,batch_size = 32,context_len = 10):
             except Exception:
                 continue
     def input_fn():
-        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100]},[]))
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'context':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100,10],'title':[100]},[]))
         ds = ds.shuffle(8192).batch(batch_size).cache().repeat()
         return ds
     return input_fn
@@ -53,7 +58,7 @@ def build_input_fn(name,data_set,batch_size = 32,context_len = 10):
 
 
 
-def build_model_fn(lr = 0.01,context_len = 10,d_model=200,input_vocab_size=100000,hidden_size=200):
+def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_vocab_size=100000,hidden_size=200):
 
     learning_rate = lr
     #
@@ -86,6 +91,7 @@ def build_model_fn(lr = 0.01,context_len = 10,d_model=200,input_vocab_size=10000
         context = features['context']
         title = features['title']
         title_real = title[:,1:]
+        context = context[:,1:]
         class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
             def __init__(self, d_model, warmup_steps=4000):
                 super(CustomSchedule, self).__init__()
@@ -103,9 +109,9 @@ def build_model_fn(lr = 0.01,context_len = 10,d_model=200,input_vocab_size=10000
                 return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
         training = mode == tf.estimator.ModeKeys.TRAIN
 
-        ABS_model = ABS(d_model=d_model,context_len=context_len,input_vocab_size=input_vocab_size,hidden_size=hidden_size)
-
-        prediction = ABS_model(source,context_len,training)
+        ABS_model = ABS(d_model=d_model,seq_len=seq_len-1,context_len=context_len,input_vocab_size=input_vocab_size,hidden_size=hidden_size)
+        mask = create_padding_mask(title_real)
+        prediction = ABS_model(source,context,mask,training)
         loss = loss_function(title_real,prediction)
         learning_rate = CustomSchedule(d_model)(global_step)
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
@@ -164,3 +170,96 @@ def build_model_fn(lr = 0.01,context_len = 10,d_model=200,input_vocab_size=10000
         return tf.estimator.EstimatorSpec(mode,{'target':prediction},loss,train_op,training_hooks=[TransformerRunHook()])
 
     return model_fn
+
+
+
+
+if __name__ == '__main__':
+
+
+    # def generator():
+    #     tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
+    #     source_file = queue_reader("NEWS","/home/user/zsm/Summarization/news_data")
+    #     for line in source_file:
+    #         example = line.split('#')
+    #         title = example[0]
+    #         desc = example[1]
+    #         content = example[2]
+    #         title = title.replace(' ','')
+    #         content = content.replace(' ','')
+    #         source_sequence = tokenizer.tokenize(content)
+    #         source_sequence = tokenizer.padding(source_sequence,1000)
+    #         title_sequence = tokenizer.tokenize(title)
+    #         title_sequence = tokenizer.padding(title_sequence,100)
+    #         # for i,s in enumerate(title_sequence):
+    #         #     label = s
+    #         #     context = title_sequence[:i]
+    #         # #
+    #         # feature = {
+    #         #     'source':source_sequence,
+    #         #     'context':title_sequence
+    #         # }
+    #         #     yield feature,label
+    #         yield source_sequence,title_sequence
+    #
+    # g = generator()
+    # for s,t in g:
+    #     print(s)
+    def train():
+        model_fn = build_model_fn()
+        estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
+        input_fn = build_input_fn("NEWS", "/home/user/zsm/Summarization/news_data_r")
+
+        estimator.train(input_fn,max_steps=10000000)
+
+
+    # def eval():
+    #     model_fn = build_model_fn()
+    #     estimator = tf.estimator.Estimator(model_fn, model_dir='./transformer', )
+    #     input_fn = build_input_fn("E_NEWS", "/home/user/zsm/Summarization/news_data",batch_size=32)
+    #     class EvalRunHook(tf.estimator.SessionRunHook):
+    #         def __init__(self):
+    #             self.count = 0
+    #             self.start_time  = time.time()
+    #             self.ctime = time.time()
+    #
+    #         def after_run(self, run_context, run_values):
+    #
+    #             self.count += 1
+    #             # a = np.mean(run_values.results['accuracy'])
+    #             if self.count % 1   == 0:
+    #                 ntime = time.time()
+    #                 dtime = ntime - self.ctime
+    #                 self.ctime = ntime
+    #                 print("Batch {0} : time_cost - {1:.2f} : all_time_cost - {2:.2f}".format(self.count, dtime, ntime- self.start_time))
+    #             pass
+    #     # estimator.train(input_fn,max_steps=1000000)
+    #     # estimator.evaluate(input_fn, 1000,hooks=[EvalRunHook()])
+    #     res = estimator.predict(input_fn,predict_keys=['target'])
+    #     for i in res:
+    #
+    #         print(i)
+    #
+    #
+    def beamsearch():
+        tokenizer = tokenization("/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt",DictSize=100000)
+        source_file = queue_reader("E_NEWS", "/home/user/zsm/Summarization/news_data_r")
+
+        def _g():
+            for source in source_file:
+                source = source.split('#')[0].split(' ')
+                source = tokenizer.padding(tokenizer.tokenize(source),1000)
+                yield  source
+        g = _g()
+
+        model_fn = build_model_fn()
+        estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
+        predictor = NewsPredictor(estimator,10)
+        bs = NewsBeamsearcher(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
+        bs.do_search_mt(100,estimator)
+
+    train()
+
+
+
+    # beamsearch()

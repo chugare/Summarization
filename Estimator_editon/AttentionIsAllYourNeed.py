@@ -7,12 +7,10 @@ from data_util.tokenization import tokenization
 from util.file_utils import queue_reader
 from model.transformer import Transformer,create_look_ahead_mask,create_padding_mask
 import time
-import threading
-import queue
-
-from interface.BeamSearch import Predictor
 
 
+from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
+MODEL_PATH = './transformer'
 
 def create_masks(inp, tar):
     # 编码器填充遮挡
@@ -33,7 +31,7 @@ def create_masks(inp, tar):
 def build_input_fn(name,data_set,batch_size = 32):
 
     def generator():
-        tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
+        tokenizer = tokenization("/root/zsm/Summarization/news_data_r/NEWS_DICT.txt",DictSize=100000)
         source_file = queue_reader(name,data_set)
         for line in source_file:
             try:
@@ -197,177 +195,6 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
 
 
 
-class TransformerPredictor(Predictor):
-    def __init__(self,topk = None):
-        self.topk = topk
-        model_fn = build_model_fn()
-        self.estimator = tf.estimator.Estimator(model_fn, model_dir='./transformer', )
-
-
-    def predict(self,source,context,con_len,topk = None):
-        def input_fn():
-            return {'source':tf.constant(source),'context':tf.constant(context),'con_len':tf.constant(con_len)},tf.constant(0)
-            # return tf.data.Dataset.from_generator(lambda :{'source':tf.constant(source),'context':tf.constant(context),'con_len':tf.constant(con_len)},tf.constant(0))
-
-        pred = self.estimator.predict(input_fn,'target',yield_single_examples=False)
-        res_v = []
-        res = next(pred)
-        for i,v in enumerate(res['target']):
-            vmap = v[con_len]
-            sort_res = np.argsort(vmap)[-topk:]
-            map_res = {}
-            for k in sort_res:
-                map_res[k] = vmap[k]
-            res_v.append(map_res)
-        return res_v
-        # count = len(res)
-        # print(count)
-
-
-
-
-class Beamsearcher:
-
-    def __init__(self,dataset,tokenizer,topk,predictor,max_count = 10):
-        self.dataset = dataset
-        self.topk = topk
-        self.predictor = predictor
-        self.buffer = [] # 保存当前生成内容
-        self.gen_len = 0 # 保存生成长度
-        self.next_topk = queue.Queue(1)
-        self.tokenizer = tokenizer
-        self.gen_result = []
-        self.max_count = max_count
-
-
-    def do_search(self,max_step):
-        for case in self.dataset:
-            source = case
-            source_input = [source[:] for _ in range(max_step)]
-            self.buffer = []
-
-            self.buffer.append(([],0))
-            for i in range(max_step):
-
-                context = []
-                # con_len = []
-
-                for seq in self.buffer:
-                    # con_len.append(len(seq[0]))
-                    context.append(self.tokenizer.padding(seq[0][:],max_step))
-
-                context = np.array(context)
-
-                next_topk = self.predictor.predict(source_input[:context.shape[0]], context, self.gen_len,self.topk)
-                tmp_buffer = []
-
-                for i, val in enumerate(self.buffer):
-                    candidate,score = val
-                    for n in next_topk[i]:
-                        ts = next_topk[i][n]
-                        tc = candidate[:]
-                        tc.append(n)
-                        tmp_buffer.append((tc,score+ts))
-
-                sorted(tmp_buffer,key=lambda x:x[1])
-                tmp_buffer = tmp_buffer[:self.topk]
-                self.buffer = tmp_buffer
-                self.gen_len += 1
-
-
-    def do_search_mt(self,max_step):
-        # buffer_lock = threading.RLock()
-        # # result_lock = threading.RLock()
-        # buffer_lock = threading.Condition(1)
-        # result_lock = threading.BoundedSemaphore(self.topk)
-
-        def fill_data(searcher):
-            while len(searcher.gen_result) < searcher.max_count:
-
-                # result_lock.acquire()
-                if len(searcher.buffer) == 0 or searcher.gen_len == max_step:
-
-                    source = next(searcher.dataset)
-                    searcher.source_input = source[:]
-                    if searcher.gen_len == max_step:
-                        searcher.gen_result.append(searcher.buffer)
-                    searcher.buffer = []
-                    for i in range(searcher.topk):
-                        searcher.buffer.append(([],0))
-                    searcher.gen_len = 0
-                    searcher.next_topk = queue.Queue(1)
-                    searcher.context = queue.Queue(1)
-                else:
-                    tmp_buffer = []
-                    buffer = searcher.buffer
-                    next_topk = searcher.next_topk.get()
-                    for i, val in enumerate(buffer):
-                        candidate,score = val
-                        for n in next_topk[i]:
-                            ts = next_topk[i][n]
-                            tc = candidate[:]
-                            tc.append(n)
-                            tmp_buffer.append((tc,score+ts))
-
-                    sorted(tmp_buffer,key=lambda x:x[1])
-                    tmp_buffer = tmp_buffer[:searcher.topk]
-                    searcher.buffer = tmp_buffer
-                    searcher.gen_len += 1
-
-                context = []
-                print('第{0}步生成的内容：'.format(searcher.gen_len))
-                for seq in self.buffer:
-                    # con_len.append(len(seq[0]))
-                    context.append(self.tokenizer.padding(seq[0][:],max_step))
-                    print(searcher.tokenizer.get_sentence(seq[0][:]))
-
-                searcher.context.put(context)
-
-
-        def data_generator():
-            searcher = self
-            while len(searcher.gen_result) < searcher.max_count:
-                context =  searcher.context.get()
-                # buffer_lock.wait(2)
-                for c in context:
-                    yield {'source':tf.constant(searcher.source_input),'context':tf.constant(c)}, tf.constant(0)
-
-
-
-
-        def input_fn():
-            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100]},[])).batch(self.topk)
-
-        model_fn = build_model_fn()
-        self.estimator = tf.estimator.Estimator(model_fn, model_dir='./transformer', )
-        pred = self.estimator.predict(input_fn,'target',yield_single_examples=False)
-
-        def get_next(searcher):
-
-            while len(searcher.gen_result) < searcher.max_count:
-                # result_lock.acquire()
-                res_v = []
-                res = next(pred)
-                # print('生成下一步')
-                for i,v in enumerate(res['target']):
-                    vmap = v[searcher.gen_len-1]
-                    sort_res = np.argsort(vmap)[-searcher.topk:]
-                    map_res = {}
-                    for k in sort_res:
-                        map_res[k] = vmap[k]
-                    res_v.append(map_res)
-
-                searcher.next_topk.put(res_v)
-                # result_lock.notify()
-            # buffer_lock.release()
-
-        producer = threading.Thread(target=fill_data,args=(self,))
-        consumer = threading.Thread(target=get_next,args=(self,))
-        producer.start()
-        consumer.start()
-
-        producer.join()
-        consumer.join()
 
 if __name__ == '__main__':
 
@@ -402,8 +229,8 @@ if __name__ == '__main__':
     #     print(s)
     def train():
         model_fn = build_model_fn()
-        estimator = tf.estimator.Estimator(model_fn,model_dir='./transformer',)
-        input_fn = build_input_fn("NEWS", "/home/user/zsm/Summarization/news_data")
+        estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
+        input_fn = build_input_fn("NEWS", "/home/user/zsm/Summarization/news_data_r")
 
         estimator.train(input_fn,max_steps=10000000)
 
@@ -411,7 +238,7 @@ if __name__ == '__main__':
     def eval():
         model_fn = build_model_fn()
         estimator = tf.estimator.Estimator(model_fn, model_dir='./transformer', )
-        input_fn = build_input_fn("E_NEWS", "/home/user/zsm/Summarization/news_data",batch_size=32)
+        input_fn = build_input_fn("E_NEWS", "/home/user/zsm/Summarization/news_data_r",batch_size=32)
         class EvalRunHook(tf.estimator.SessionRunHook):
             def __init__(self):
                 self.count = 0
@@ -437,20 +264,25 @@ if __name__ == '__main__':
     #
     #
     def beamsearch():
-        tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT_R.txt",DictSize=100000)
-        source_file = queue_reader("E_NEWS", "/home/user/zsm/Summarization/news_data")
-        predictor = TransformerPredictor(10)
+        tokenizer = tokenization("/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt",DictSize=100000)
+        source_file = queue_reader("E_NEWS", "/home/user/zsm/Summarization/news_data_r")
         def _g():
             for source in source_file:
-                source = ''.join(source.split('#')[0].split(' '))
+                source = source.split('#')[0].split(' ')
                 source = tokenizer.padding(tokenizer.tokenize(source),1000)
                 yield  source
         g = _g()
-        bs = Beamsearcher(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
-        bs.do_search_mt(100)
 
-    # train()
+        model_fn = build_model_fn()
+        estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH )
 
-    beamsearch()
+        predictor = NewsPredictor(estimator,10)
+
+        bs = NewsBeamsearcher(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
+        bs.do_search_mt(100,estimator=estimator)
+
+    train()
+
+    # beamsearch()
 
 

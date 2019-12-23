@@ -1,5 +1,4 @@
-import os
-from model.Seq2seq_PA import Main,Meta
+from old_session.Seq2seq_PA import Main,Meta
 
 def run():
     # if not os.path.exists('PA_result'):

@@ -48,8 +48,8 @@ class NewsDatasetBuilder(DatasetBuilder):
         for i in ULSW:
             self.dic[i] = 0
         self.dic = sorted(self.dic.items(),key=lambda i:i[1],reverse=True)
-        BRD.write("%d %s %s %d" % (0, "<PAD>", "x", 0))
-        BRD.write("%d %s %s %d" % (1, "<EOS>", "x", 0))
+        # BRD.write("%d %s %s %d" % (0, "<PAD>", "x", 0))
+        # BRD.write("%d %s %s %d" % (1, "<EOS>", "x", 0))
 
         for w , wordCount in self.dic:
             if wordCount > self.threshold:

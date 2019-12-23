@@ -19,11 +19,6 @@ class tokenization:
             dic_file = open(self.DictName, 'r', encoding='utf-8')
             wordCount = 2
             #
-            # self.GRAM2N['SOS'] = 1
-            # self.N2GRAM[1] = 'SOS'
-            #
-            # self.GRAM2N['PAD'] = 0
-            # self.N2GRAM[0] = 'PAD'
             for line in dic_file:
                 wordInfo = line.split(' ')
                 if len(wordInfo)<1:
@@ -38,6 +33,12 @@ class tokenization:
                 wordCount += 1
                 if self.DictSize and wordCount >= self.DictSize:
                     break
+            self.GRAM2N['<EOS>'] = 1
+            self.N2GRAM[1] = 'SOS'
+
+            self.GRAM2N['<PAD>'] = 0
+            self.N2GRAM[0] = 'PAD'
+
         except FileNotFoundError:
             print('[INFO] 未发现对应的*_DIC.txt文件，需要先生成字典，完毕之后重新运行程序即可')
             print(self.DictName)

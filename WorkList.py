@@ -1,7 +1,7 @@
-from meta.Meta import  Meta
 from data_util import data_pipe
+from meta.Meta import Meta
+from old_session import Seq2seq_hierarchical_softmax
 from util import Tool
-from model import Seq2seq_hierarchical_softmax
 
 meta  = Meta( ReadNum= 80,TaskName = 'DP_s2s_hierarchacal',
                          LearningRate = 0.005,
