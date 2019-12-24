@@ -35,9 +35,8 @@ class NewsPredictor(Predictor):
 
 class NewsBeamsearcher(Beamsearcher):
 
-
-
-
+    def get_context(self):
+        pass
     def do_search_mt(self,max_step,estimator):
         # buffer_lock = threading.RLock()
         # # result_lock = threading.RLock()
@@ -50,8 +49,10 @@ class NewsBeamsearcher(Beamsearcher):
                 # result_lock.acquire()
                 if len(searcher.buffer) == 0 or searcher.gen_len == max_step:
 
-                    source = next(searcher.dataset)
+                    source, title = next(searcher.dataset)
                     searcher.source_input = source[:]
+                    searcher.title_input = title[:]
+
                     if searcher.gen_len == max_step:
                         searcher.gen_result.append(searcher.buffer)
                     searcher.buffer = []
@@ -61,26 +62,37 @@ class NewsBeamsearcher(Beamsearcher):
                     searcher.next_topk = queue.Queue(1)
                     searcher.context = queue.Queue(1)
                 else:
+
                     tmp_buffer = []
                     buffer = searcher.buffer
                     next_topk = searcher.next_topk.get()
-                    for i, val in enumerate(buffer):
-                        candidate,score = val
+                    if searcher.gen_len == 0:
+                        candidate,score = buffer[0]
                         for n in next_topk[i]:
                             ts = next_topk[i][n]
                             tc = candidate[:]
                             tc.append(n)
                             tmp_buffer.append((tc,score+ts))
+                    else:
+                        for i, val in enumerate(buffer):
+                            candidate,score = val
+                            for n in next_topk[i]:
+                                ts = next_topk[i][n]
+                                tc = candidate[:]
+                                tc.append(n)
+                                tmp_buffer.append((tc,score+ts))
 
-                    sorted(tmp_buffer,key=lambda x:x[1])
-                    tmp_buffer = tmp_buffer[:searcher.topk]
+                    tmp_buffer = sorted(tmp_buffer,key=lambda x:x[1])
+                    tmp_buffer = tmp_buffer[-searcher.topk:]
                     searcher.buffer = tmp_buffer
                     searcher.gen_len += 1
 
                 context = []
-                print('第{0}步生成的内容：'.format(searcher.gen_len))
+                if searcher.gen_len>0:
+                    print('第{0}步生成的内容：'.format(searcher.gen_len))
                 for seq in self.buffer:
                     # con_len.append(len(seq[0]))
+
                     context.append(self.tokenizer.padding(seq[0][:],max_step))
                     print(searcher.tokenizer.get_sentence(seq[0][:]))
 
@@ -117,6 +129,7 @@ class NewsBeamsearcher(Beamsearcher):
                     for k in sort_res:
                         map_res[k] = vmap[k]
                     res_v.append(map_res)
+                    print(map_res)
 
                 searcher.next_topk.put(res_v)
                 # result_lock.notify()

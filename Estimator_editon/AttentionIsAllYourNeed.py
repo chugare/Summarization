@@ -268,9 +268,13 @@ if __name__ == '__main__':
         source_file = queue_reader("E_NEWS", "/home/user/zsm/Summarization/news_data_r")
         def _g():
             for source in source_file:
-                source = source.split('#')[0].split(' ')
+
+                value = source.split('#')
+                source = value[2].split(' ')
+                title = value[0].split(' ')
                 source = tokenizer.padding(tokenizer.tokenize(source),1000)
-                yield  source
+                title = tokenizer.padding(tokenizer.tokenize(title),100)
+                yield  source,title
         g = _g()
 
         model_fn = build_model_fn()
@@ -281,8 +285,8 @@ if __name__ == '__main__':
         bs = NewsBeamsearcher(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
         bs.do_search_mt(100,estimator=estimator)
 
-    train()
+    # train()
 
-    # beamsearch()
+    beamsearch()
 
 

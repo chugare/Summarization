@@ -1,14 +1,10 @@
 
 
-a = [(i, i*2, i*3) for i in range(10)]
+a = [(i,i*-100) for i in range(10)]
 
 
+a = sorted(a,key=lambda x:x[1])
 
 print(a)
 
-ad,b,c = zip(*a)
-print(ad)
-print(b)
-print(c)
-a = 'aaa'
-print(a)
+
