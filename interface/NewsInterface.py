@@ -35,8 +35,13 @@ class NewsPredictor(Predictor):
 
 class NewsBeamsearcher(Beamsearcher):
 
-    def get_context(self):
+    def get_context(self,max_step):
         pass
+    def get_pred_map(self,pred):
+        pass
+    def get_input_fn(self):
+        pass
+
     def do_search_mt(self,max_step,estimator):
         # buffer_lock = threading.RLock()
         # # result_lock = threading.RLock()
@@ -87,33 +92,14 @@ class NewsBeamsearcher(Beamsearcher):
                     searcher.buffer = tmp_buffer
                     searcher.gen_len += 1
 
-                context = []
                 if searcher.gen_len>0:
                     print('第{0}步生成的内容：'.format(searcher.gen_len))
-                for seq in self.buffer:
-                    # con_len.append(len(seq[0]))
 
-                    context.append(self.tokenizer.padding(seq[0][:],max_step))
-                    print(searcher.tokenizer.get_sentence(seq[0][:]))
+                context = searcher.get_context(max_step)
 
                 searcher.context.put(context)
 
-
-        def data_generator():
-            searcher = self
-            while len(searcher.gen_result) < searcher.max_count:
-                context =  searcher.context.get()
-                # buffer_lock.wait(2)
-                for c in context:
-                    yield {'source':tf.constant(searcher.source_input),'context':tf.constant(c)}, tf.constant(0)
-
-
-
-
-        def input_fn():
-            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100]},[])).batch(self.topk)
-
-        pred = estimator.predict(input_fn,'target',yield_single_examples=False)
+        pred = estimator.predict(self.get_input_fn(),'target',yield_single_examples=False)
 
         def get_next(searcher):
 
@@ -122,14 +108,16 @@ class NewsBeamsearcher(Beamsearcher):
                 res_v = []
                 res = next(pred)
                 # print('生成下一步')
-                for i,v in enumerate(res['target']):
-                    vmap = v[searcher.gen_len-1]
+
+                res = searcher.get_pred_map(res)
+                for i,v in enumerate(res):
+                    # vmap = v[searcher.gen_len-1]
+                    vmap = v
                     sort_res = np.argsort(vmap)[-searcher.topk:]
                     map_res = {}
                     for k in sort_res:
                         map_res[k] = vmap[k]
                     res_v.append(map_res)
-                    print(map_res)
 
                 searcher.next_topk.put(res_v)
                 # result_lock.notify()

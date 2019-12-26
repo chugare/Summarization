@@ -89,9 +89,6 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
         global_step = tf.compat.v1.train.get_or_create_global_step()
         source = features['source']
         context = features['context']
-        title = features['title']
-        title_real = title[:,1:]
-        context = context[:,1:]
         class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
             def __init__(self, d_model, warmup_steps=4000):
                 super(CustomSchedule, self).__init__()
@@ -110,37 +107,38 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
         training = mode == tf.estimator.ModeKeys.TRAIN
 
         ABS_model = ABS(d_model=d_model,seq_len=seq_len-1,context_len=context_len,input_vocab_size=input_vocab_size,hidden_size=hidden_size)
-        mask = create_padding_mask(title_real)
+        if mode == tf.estimator.ModeKeys.TRAIN:
+            title = features['title']
+            title_real = title[:,1:]
+            mask = create_padding_mask(title_real)
+            context = context[:,:-1]
+        else:
+            mask = tf.ones(shape=tf.shape(context))
+
         prediction = ABS_model(source,context,mask,training)
-        loss = loss_function(title_real,prediction)
-        learning_rate = CustomSchedule(d_model)(global_step)
-        optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
-                                                     epsilon=1e-9)
-        # new_global_step = global_step + 1
+        if mode == tf.estimator.ModeKeys.TRAIN:
 
-        # gradients = tape.gradient(loss,transformer.trainable_variables)
-        # train_loss = tf.keras.metrics.Mean(name='train_loss')
-        # train_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy(
-        #     name='train_accuracy')
 
-        # optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98,
-        #                                      epsilon=1e-9)
-        train_accuracy = accuracy_function(title_real, prediction)
-        grads = optimizer.compute_gradients(loss)
-        for grad, var in grads:
-            tf.summary.histogram(var.name + '/gradient', grad,global_step)
-        grad, var = zip(*grads)
-        tf.clip_by_global_norm(grad, 0.5)
-        grads = zip(grad, var)
+            loss = loss_function(title_real,prediction)
+            learning_rate = CustomSchedule(d_model)(global_step)
+            optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
+                                                         epsilon=1e-9)
+            train_accuracy = accuracy_function(title_real, prediction)
+            grads = optimizer.compute_gradients(loss)
+            for grad, var in grads:
+                tf.summary.histogram(var.name + '/gradient', grad,global_step)
+            grad, var = zip(*grads)
+            tf.clip_by_global_norm(grad, 0.5)
+            grads = zip(grad, var)
 
-        train_op = optimizer.apply_gradients(grads, global_step=global_step)
-        # train_op = tf.group(train_op, [global_step.assign(new_global_step)])
+            train_op = optimizer.apply_gradients(grads, global_step=global_step)
 
-        tf.summary.scalar('accuracy',train_accuracy,global_step)
-        # = optimizer.minimize(lambda: loss,transformer.trainable_variables)
-        # train_op = optimizer.apply_gradients(zip(gradients,transformer.trainable_variables))
-        # train_loss(loss)
-        # train_accuracy(tar_real, prediction)
+            tf.summary.scalar('accuracy',train_accuracy,global_step)
+        else:
+            loss = tf.constant(0)
+            train_accuracy = tf.constant(0)
+            train_op = tf.no_op()
+
         class TransformerRunHook(tf.estimator.SessionRunHook):
             def __init__(self):
                 self.count = 0
@@ -173,100 +171,47 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
 
 
 class ABSBeamSearcher(NewsBeamsearcher):
+    def __init__(self,dataset,tokenizer,topk,predictor,context_len,max_count = 10,):
+        super(ABSBeamSearcher,self).__init__(dataset,tokenizer,topk,predictor)
+        self.context_len = context_len
 
-    def do_search_mt(self,max_step,estimator):
-        # buffer_lock = threading.RLock()
-        # # result_lock = threading.RLock()
-        # buffer_lock = threading.Condition(1)
-        # result_lock = threading.BoundedSemaphore(self.topk)
+    def get_context(self,max_step):
+        title_context = []
+        padding = [ [0]*10 for i in range(99)]
 
-        def fill_data(searcher):
-            while len(searcher.gen_result) < searcher.max_count:
+        for s in self.buffer:
+            if self.gen_len > self.context_len:
+                context = s[self.gen_len-self.context_len:self.gen_len]
+            else:
+                context = [0]*(self.context_len-self.gen_len)
+                context.extend(s[0][:self.gen_len])
+            val = []
+            val.append(context)
+            # val.extend(padding)
+            title_context.append(val)
+            print(self.tokenizer.get_sentence(s[0][:]))
 
-                # result_lock.acquire()
-                if len(searcher.buffer) == 0 or searcher.gen_len == max_step:
+        return title_context
+    def get_pred_map(self,pred):
 
-                    source,title = next(searcher.dataset)
-                    searcher.source_input = source[:]
-                    searcher.title_input = title[:]
-
-                    if searcher.gen_len == max_step:
-                        searcher.gen_result.append(searcher.buffer)
-                    searcher.buffer = []
-                    for i in range(searcher.topk):
-                        searcher.buffer.append(([],0))
-                    searcher.gen_len = 0
-                    searcher.next_topk = queue.Queue(1)
-                    searcher.context = queue.Queue(1)
-                else:
-                    tmp_buffer = []
-                    buffer = searcher.buffer
-                    next_topk = searcher.next_topk.get()
-                    for i, val in enumerate(buffer):
-                        candidate,score = val
-                        for n in next_topk[i]:
-                            ts = next_topk[i][n]
-                            tc = candidate[:]
-                            tc.append(n)
-                            tmp_buffer.append((tc,score+ts))
-
-                    sorted(tmp_buffer,key=lambda x:x[1])
-                    tmp_buffer = tmp_buffer[:searcher.topk]
-                    searcher.buffer = tmp_buffer
-                    searcher.gen_len += 1
-
-                context = []
-                print('第{0}步生成的内容：'.format(searcher.gen_len))
-                for seq in self.buffer:
-                    # con_len.append(len(seq[0]))
-                    context.append(self.tokenizer.padding(seq[0][:],max_step))
-                    print(searcher.tokenizer.get_sentence(seq[0][:]))
-
-                searcher.context.put(context)
+        return pred['target'][:,0,:]
 
 
+    def get_input_fn(self):
         def data_generator():
             searcher = self
             while len(searcher.gen_result) < searcher.max_count:
                 context =  searcher.context.get()
                 # buffer_lock.wait(2)
                 for c in context:
-                    yield {'source':tf.constant(searcher.source_input),'context':tf.constant(c),'title':tf.constant(searcher.source_input)}, tf.constant(0)
-
-
-
+                    yield {'source':tf.constant(searcher.source_input),'context':tf.constant(c)}, tf.constant(0)
 
         def input_fn():
-            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'context':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100,10],'title':[100]},[]))
+            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[1,10]},[])).batch(self.topk)
+        return input_fn
 
-        pred = estimator.predict(input_fn,'target',yield_single_examples=False)
 
-        def get_next(searcher):
 
-            while len(searcher.gen_result) < searcher.max_count:
-                # result_lock.acquire()
-                res_v = []
-                res = next(pred)
-                # print('生成下一步')
-                for i,v in enumerate(res['target']):
-                    vmap = v[searcher.gen_len-1]
-                    sort_res = np.argsort(vmap)[-searcher.topk:]
-                    map_res = {}
-                    for k in sort_res:
-                        map_res[k] = vmap[k]
-                    res_v.append(map_res)
-
-                searcher.next_topk.put(res_v)
-                # result_lock.notify()
-                # buffer_lock.release()
-
-        producer = threading.Thread(target=fill_data,args=(self,))
-        consumer = threading.Thread(target=get_next,args=(self,))
-        producer.start()
-        consumer.start()
-
-        producer.join()
-        consumer.join()
 
 if __name__ == '__main__':
 
@@ -342,19 +287,22 @@ if __name__ == '__main__':
 
         def _g():
             for source in source_file:
-                source = source.split('#')[0].split(' ')
+                value = source.split('#')
+                source = value[2].split(' ')
+                title = value[0].split(' ')
                 source = tokenizer.padding(tokenizer.tokenize(source),1000)
-                yield  source
+                title = tokenizer.padding(tokenizer.tokenize(title),100)
+                yield  source,title
         g = _g()
 
-        model_fn = build_model_fn()
+        model_fn = build_model_fn(seq_len=2)
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
         predictor = NewsPredictor(estimator,10)
-        bs = NewsBeamsearcher(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
+        bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=10,context_len=10,predictor=predictor)
         bs.do_search_mt(100,estimator)
 
-    # train()
+    train()
 
 
 
-    beamsearch()
+    # beamsearch()

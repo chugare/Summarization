@@ -190,10 +190,28 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
     return model_fn
 
 
+class TFMBeam(NewsBeamsearcher):
+    def get_context(self,max_step):
+        context = []
+        for seq in self.buffer:
+            context.append(self.tokenizer.padding(seq[0][:],max_step))
 
+            print(self.tokenizer.get_sentence(seq[0][:]))
+        return context
+    def get_pred(self,pred):
+        return pred['target'][:,self.gen_len-1,:]
+    def get_input_fn(self):
+        def data_generator():
+            searcher = self
+            while len(searcher.gen_result) < searcher.max_count:
+                context =  searcher.context.get()
+                # buffer_lock.wait(2)
+                for c in context:
+                    yield {'source':tf.constant(searcher.source_input),'context':tf.constant(c)}, tf.constant(0)
 
-
-
+        def input_fn():
+            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100]},[])).batch(self.topk)
+        return input_fn
 
 
 if __name__ == '__main__':
@@ -282,7 +300,7 @@ if __name__ == '__main__':
 
         predictor = NewsPredictor(estimator,10)
 
-        bs = NewsBeamsearcher(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
+        bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
         bs.do_search_mt(100,estimator=estimator)
 
     # train()
