@@ -11,13 +11,13 @@ from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 
 
 MODEL_PATH = './ABS'
-
-
+DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
+DATA_PATH = '/home/user/zsm/Summarization/news_data'
 
 def build_input_fn(name,data_set,batch_size = 32,context_len = 10):
 
     def generator():
-        tokenizer = tokenization("/root/zsm/Summarization/news_data_r/NEWS_DICT.txt",DictSize=100000)
+        tokenizer = tokenization(DICT_PATH,DictSize=100000)
         source_file = queue_reader(name,data_set)
         for line in source_file:
             try:
@@ -32,6 +32,7 @@ def build_input_fn(name,data_set,batch_size = 32,context_len = 10):
                 title_sequence = tokenizer.tokenize(title)
                 title_sequence = tokenizer.padding(title_sequence,100)
                 title_context = []
+                # title_context.append([0]*context_le)
                 for i,s in enumerate(title_sequence):
                     if i > context_len:
                         context = title_sequence[i-context_len:i]
@@ -106,12 +107,12 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
                 return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
         training = mode == tf.estimator.ModeKeys.TRAIN
 
-        ABS_model = ABS(d_model=d_model,seq_len=seq_len-1,context_len=context_len,input_vocab_size=input_vocab_size,hidden_size=hidden_size)
+        ABS_model = ABS(d_model=d_model,seq_len=seq_len,context_len=context_len,input_vocab_size=input_vocab_size,hidden_size=hidden_size)
         if mode == tf.estimator.ModeKeys.TRAIN:
             title = features['title']
-            title_real = title[:,1:]
+            title_real = title
             mask = create_padding_mask(title_real)
-            context = context[:,:-1]
+            # context = context[:,:-1]
         else:
             mask = tf.ones(shape=tf.shape(context))
 
@@ -133,7 +134,7 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
 
             train_op = optimizer.apply_gradients(grads, global_step=global_step)
 
-            tf.summary.scalar('accuracy',train_accuracy,global_step)
+            tf.summary.scalar('accuracy',train_accuracy)
         else:
             loss = tf.constant(0)
             train_accuracy = tf.constant(0)
@@ -177,7 +178,6 @@ class ABSBeamSearcher(NewsBeamsearcher):
 
     def get_context(self,max_step):
         title_context = []
-        padding = [ [0]*10 for i in range(99)]
 
         for s in self.buffer:
             if self.gen_len > self.context_len:
@@ -185,6 +185,7 @@ class ABSBeamSearcher(NewsBeamsearcher):
             else:
                 context = [0]*(self.context_len-self.gen_len)
                 context.extend(s[0][:self.gen_len])
+
             val = []
             val.append(context)
             # val.extend(padding)
@@ -202,6 +203,7 @@ class ABSBeamSearcher(NewsBeamsearcher):
             searcher = self
             while len(searcher.gen_result) < searcher.max_count:
                 context =  searcher.context.get()
+                print(context)
                 # buffer_lock.wait(2)
                 for c in context:
                     yield {'source':tf.constant(searcher.source_input),'context':tf.constant(c)}, tf.constant(0)
@@ -215,39 +217,10 @@ class ABSBeamSearcher(NewsBeamsearcher):
 
 if __name__ == '__main__':
 
-
-    # def generator():
-    #     tokenizer = tokenization("/root/zsm/Summarization/news_data/NEWS_DICT.txt",DictSize=100000)
-    #     source_file = queue_reader("NEWS","/home/user/zsm/Summarization/news_data")
-    #     for line in source_file:
-    #         example = line.split('#')
-    #         title = example[0]
-    #         desc = example[1]
-    #         content = example[2]
-    #         title = title.replace(' ','')
-    #         content = content.replace(' ','')
-    #         source_sequence = tokenizer.tokenize(content)
-    #         source_sequence = tokenizer.padding(source_sequence,1000)
-    #         title_sequence = tokenizer.tokenize(title)
-    #         title_sequence = tokenizer.padding(title_sequence,100)
-    #         # for i,s in enumerate(title_sequence):
-    #         #     label = s
-    #         #     context = title_sequence[:i]
-    #         # #
-    #         # feature = {
-    #         #     'source':source_sequence,
-    #         #     'context':title_sequence
-    #         # }
-    #         #     yield feature,label
-    #         yield source_sequence,title_sequence
-    #
-    # g = generator()
-    # for s,t in g:
-    #     print(s)
     def train():
         model_fn = build_model_fn()
         estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-        input_fn = build_input_fn("NEWS", "/home/user/zsm/Summarization/news_data_r")
+        input_fn = build_input_fn("NEWS", DATA_PATH)
 
         estimator.train(input_fn,max_steps=10000000)
 
@@ -282,8 +255,8 @@ if __name__ == '__main__':
     #
 
     def beamsearch():
-        tokenizer = tokenization("/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt",DictSize=100000)
-        source_file = queue_reader("E_NEWS", "/home/user/zsm/Summarization/news_data_r")
+        tokenizer = tokenization(DICT_PATH,DictSize=100000)
+        source_file = queue_reader("NEWS", DATA_PATH )
 
         def _g():
             for source in source_file:
@@ -295,14 +268,11 @@ if __name__ == '__main__':
                 yield  source,title
         g = _g()
 
-        model_fn = build_model_fn(seq_len=2)
+        model_fn = build_model_fn(seq_len=1)
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
         predictor = NewsPredictor(estimator,10)
         bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=10,context_len=10,predictor=predictor)
         bs.do_search_mt(100,estimator)
 
-    train()
-
-
-
-    # beamsearch()
+    # train()
+    beamsearch()

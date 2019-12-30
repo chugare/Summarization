@@ -2,6 +2,7 @@
 import sys
 sys.path.append('/home/user/zsm/Summarization')
 import tensorflow as tf
+import tensorboard as tb
 import numpy as np
 from data_util.tokenization import tokenization
 from util.file_utils import queue_reader
@@ -11,7 +12,8 @@ import time
 
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 MODEL_PATH = './transformer'
-
+DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
+DATA_PATH = '/home/user/zsm/Summarization/news_data'
 def create_masks(inp, tar):
     # 编码器填充遮挡
     enc_padding_mask = create_padding_mask(inp)
@@ -31,7 +33,7 @@ def create_masks(inp, tar):
 def build_input_fn(name,data_set,batch_size = 32):
 
     def generator():
-        tokenizer = tokenization("/root/zsm/Summarization/news_data_r/NEWS_DICT.txt",DictSize=100000)
+        tokenizer = tokenization(DICT_PATH,DictSize=100000)
         source_file = queue_reader(name,data_set)
         for line in source_file:
             try:
@@ -154,7 +156,9 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
         train_op = optimizer.apply_gradients(grads, global_step=global_step)
         # train_op = tf.group(train_op, [global_step.assign(new_global_step)])
 
-        tf.summary.scalar('accuracy',train_accuracy,global_step)
+        tf.summary.scalar('ACC',train_accuracy)
+        pred = tf.argmax(prediction,-1)
+        tf.summary.histogram('PRED',pred)
         # = optimizer.minimize(lambda: loss,transformer.trainable_variables)
         # train_op = optimizer.apply_gradients(zip(gradients,transformer.trainable_variables))
         # train_loss(loss)
@@ -165,18 +169,26 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
                 self.start_time  = time.time()
                 self.ctime = time.time()
             def before_run(self, run_context):
-                return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate})
+                return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate,'PRED':pred})
 
             def after_run(self, run_context, run_values):
 
                 self.count += 1
                 # a = np.mean(run_values.results['accuracy'])
                 a = run_values.results['accuracy']
-                if self.count % 10  == 0:
+                def statis(pred):
+                    c_map = {}
+                    pred = np.reshape(pred,[-1])
+                    for w in pred:
+                        c_map.setdefault(w,0)
+                        c_map[w] += 1
+                    return c_map
+                if self.count % 100  == 0:
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
                     print("Batch {0} : loss - {1:.3f} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time))
+                    print(statis(run_values.results['PRED']))
                 pass
         # summaryHook = tf.estimator.SummarySaverHook(
         #     save_steps=10,
@@ -184,7 +196,6 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
         #     summary_writer=None,
         #     summary_op=tf.summary.
         # )
-
         return tf.estimator.EstimatorSpec(mode,{'target':prediction},loss,train_op,training_hooks=[TransformerRunHook()])
 
     return model_fn
@@ -198,7 +209,7 @@ class TFMBeam(NewsBeamsearcher):
 
             print(self.tokenizer.get_sentence(seq[0][:]))
         return context
-    def get_pred(self,pred):
+    def get_pred_map(self,pred):
         return pred['target'][:,self.gen_len-1,:]
     def get_input_fn(self):
         def data_generator():
@@ -207,7 +218,7 @@ class TFMBeam(NewsBeamsearcher):
                 context =  searcher.context.get()
                 # buffer_lock.wait(2)
                 for c in context:
-                    yield {'source':tf.constant(searcher.source_input),'context':tf.constant(c)}, tf.constant(0)
+                    yield {'source':searcher.source_input,'context':c}, tf.constant(0)
 
         def input_fn():
             return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100]},[])).batch(self.topk)
@@ -248,15 +259,15 @@ if __name__ == '__main__':
     def train():
         model_fn = build_model_fn()
         estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-        input_fn = build_input_fn("NEWS", "/home/user/zsm/Summarization/news_data_r")
+        input_fn = build_input_fn("NEWS",DATA_PATH)
 
         estimator.train(input_fn,max_steps=10000000)
 
 
     def eval():
         model_fn = build_model_fn()
-        estimator = tf.estimator.Estimator(model_fn, model_dir='./transformer', )
-        input_fn = build_input_fn("E_NEWS", "/home/user/zsm/Summarization/news_data_r",batch_size=32)
+        estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
+        input_fn = build_input_fn("E_NEWS", DATA_PATH,batch_size=32)
         class EvalRunHook(tf.estimator.SessionRunHook):
             def __init__(self):
                 self.count = 0
@@ -282,8 +293,8 @@ if __name__ == '__main__':
     #
     #
     def beamsearch():
-        tokenizer = tokenization("/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt",DictSize=100000)
-        source_file = queue_reader("E_NEWS", "/home/user/zsm/Summarization/news_data_r")
+        tokenizer = tokenization(DICT_PATH,DictSize=100000)
+        source_file = queue_reader("E_NEWS", DATA_PATH)
         def _g():
             for source in source_file:
 
@@ -298,13 +309,12 @@ if __name__ == '__main__':
         model_fn = build_model_fn()
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH )
 
-        predictor = NewsPredictor(estimator,10)
+        predictor = NewsPredictor(estimator,1)
 
-        bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=10,predictor=predictor)
+        bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=1,predictor=predictor)
         bs.do_search_mt(100,estimator=estimator)
 
-    # train()
-
-    beamsearch()
+    train()
+    # beamsearch()
 
 

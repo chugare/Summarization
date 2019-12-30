@@ -2,6 +2,8 @@ import sys
 sys.path.append("/home/user/zsm/Summarization/")
 # from data_util.news_2016.txt_builder import NewsDatasetBuilder
 from data_util.news_2016.mysql_builder import NewsDatasetMysqlWriter
+from data_util.news_2016.txt_builder import NewsDatasetFromMysql
+
 
 def  mk_txt():
     dict_f = open('NEWS_DICT.txt','r',encoding='utf-8')
@@ -35,9 +37,13 @@ def  mk_txt():
         if c>=100000:
             break
 
+
+
+
 if __name__ == '__main__':
     # l = NewsDatasetBuilder(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
     # l.build_dataset()
-    l = NewsDatasetMysqlWriter(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
-    l.write_mysql()
-
+    # l = NewsDatasetMysqlWriter(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
+    source = ['中国新闻网','新华网','光明网','京华时报']
+    nd = NewsDatasetFromMysql(source)
+    nd.build()

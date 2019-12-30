@@ -34,3 +34,7 @@ class MysqlWriter():
             print("[W] some data insert failed, but process continue")
         finally:
             cur.close()
+
+
+
+

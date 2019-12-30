@@ -1,10 +1,14 @@
-from data_util.data_source import DatasetBuilder,SegFileBatchWriter,BatchWriter
-import json
+from data_util.data_source import DatasetBuilder
+from data_util.BatchWriter import BatchWriter,SegFileBatchWriter
+import json,jieba
+from util.mysql_utils import get_by_source
 
 
 
 class NewsDatasetBuilder(DatasetBuilder):
-
+    '''
+    从最原始的json文件当中解析并获取各个部分的文本，将其拼接成txt的形式，用#分割
+    '''
     def read(self):
         count = 0
         for line in self.source:
@@ -63,3 +67,21 @@ class NewsDatasetBuilder(DatasetBuilder):
         ll = sorted(self.length_map.keys(), key=lambda x: x)
         for k in ll:
             print("%d : %d" % (k, self.length_map[k]))
+
+class NewsDatasetFromMysql:
+    def __init__(self,sources):
+        assert isinstance(sources,list)
+        self.sources = sources
+    def build(self):
+        BR = BatchWriter(open("NEWS.txt",'w',encoding='utf-8'))
+        for source in self.sources:
+            res = get_by_source(source)
+            for line in res:
+                ID,title,source,length,content = line
+                title = jieba.lcut(title)
+                content = jieba.lcut(content)
+                BR.write(' '.join(title)+'#'+source+'#'+' '.join(content))
+        BR.close()
+
+
+

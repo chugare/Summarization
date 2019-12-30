@@ -35,3 +35,4 @@ class NewsDatasetMysqlWriter(DatasetBuilder):
             MR.write((obj.get('title',''),obj.get('source',''),obj.get('content','')))
         MR.close()
 
+
