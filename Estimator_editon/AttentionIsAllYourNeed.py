@@ -188,7 +188,7 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
                     dtime = ntime - self.ctime
                     self.ctime = ntime
                     print("Batch {0} : loss - {1:.3f} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time))
-                    print(statis(run_values.results['PRED']))
+                    # print(statis(run_values.results['PRED']))
                 pass
         # summaryHook = tf.estimator.SummarySaverHook(
         #     save_steps=10,
@@ -292,9 +292,9 @@ if __name__ == '__main__':
             print(i)
     #
     #
-    def beamsearch():
+    def beamsearch(topk = 10):
         tokenizer = tokenization(DICT_PATH,DictSize=100000)
-        source_file = queue_reader("E_NEWS", DATA_PATH)
+        source_file = queue_reader("NEWS", DATA_PATH)
         def _g():
             for source in source_file:
 
@@ -309,12 +309,12 @@ if __name__ == '__main__':
         model_fn = build_model_fn()
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH )
 
-        predictor = NewsPredictor(estimator,1)
+        predictor = NewsPredictor(estimator,topk)
 
-        bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=1,predictor=predictor)
+        bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=topk,predictor=predictor)
         bs.do_search_mt(100,estimator=estimator)
 
-    train()
-    # beamsearch()
+    # train()
+    beamsearch()
 
 

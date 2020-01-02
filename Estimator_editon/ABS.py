@@ -274,5 +274,5 @@ if __name__ == '__main__':
         bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=10,context_len=10,predictor=predictor)
         bs.do_search_mt(100,estimator)
 
-    # train()
-    beamsearch()
+    train()
+    # beamsearch()
