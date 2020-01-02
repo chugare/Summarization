@@ -20,8 +20,9 @@ class Beamsearcher:
         self.next_topk = queue.Queue(1)
         self.tokenizer = tokenizer
         self.gen_result = []
-        self.max_count = max_count
 
+        self.max_count = max_count
+        self.context = queue.Queue(1)
 
     def do_search(self,max_step):
         for case in self.dataset:

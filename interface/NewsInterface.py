@@ -14,7 +14,7 @@ class NewsPredictor(Predictor):
             return {'source':tf.constant(source),'context':tf.constant(context),'con_len':tf.constant(con_len)},tf.constant(0)
             # return tf.data.Dataset.from_generator(lambda :{'source':tf.constant(source),'context':tf.constant(context),'con_len':tf.constant(con_len)},tf.constant(0))
 
-        pred = self.estimator.predict(input_fn,'target',yield_single_examples=False)
+        pred = self.estimator.predict(input_fn,['target','source_input','context'],yield_single_examples=False)
         res_v = []
         res = next(pred)
         for i,v in enumerate(res['target']):
@@ -73,18 +73,23 @@ class NewsBeamsearcher(Beamsearcher):
                     next_topk = searcher.next_topk.get()
                     if searcher.gen_len == 0:
                         candidate,score = buffer[0]
-                        for n in next_topk[i]:
-                            ts = next_topk[i][n]
+
+                        for n in next_topk[0]:
+                            ts = next_topk[0][n]
                             tc = candidate[:]
-                            tc.append(n)
+                            # tc.append(n)
+                            tc.append(searcher.title_input[searcher.gen_len])
                             tmp_buffer.append((tc,score+ts))
+
                     else:
                         for i, val in enumerate(buffer):
                             candidate,score = val
                             for n in next_topk[i]:
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
-                                tc.append(n)
+                                # tc.append(n)
+                                tc.append(searcher.title_input[searcher.gen_len])
+
                                 tmp_buffer.append((tc,score+ts))
 
                     tmp_buffer = sorted(tmp_buffer,key=lambda x:x[1])
@@ -99,7 +104,7 @@ class NewsBeamsearcher(Beamsearcher):
 
                 searcher.context.put(context)
 
-        pred = estimator.predict(self.get_input_fn(),'target',yield_single_examples=False)
+        pred = estimator.predict(self.get_input_fn(),['target','source_input','context'],yield_single_examples=False)
 
         def get_next(searcher):
 
