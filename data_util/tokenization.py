@@ -107,8 +107,8 @@ class tokenization:
             else:
                 if indexArr[i] != 1:
                     res+=' ' + (self.N2GRAM[indexArr[i]])
-                # else:
-                #     break
+                else:
+                    break
 
         return res
 

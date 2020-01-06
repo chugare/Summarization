@@ -183,7 +183,7 @@ def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_v
                         c_map.setdefault(w,0)
                         c_map[w] += 1
                     return c_map
-                if self.count % 100  == 0:
+                if self.count % 1  == 0:
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
@@ -267,7 +267,7 @@ if __name__ == '__main__':
     def eval():
         model_fn = build_model_fn()
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
-        input_fn = build_input_fn("E_NEWS", DATA_PATH,batch_size=32)
+        input_fn = build_input_fn("E_NEWS", DATA_PATH,batch_size=3200)
         class EvalRunHook(tf.estimator.SessionRunHook):
             def __init__(self):
                 self.count = 0
@@ -314,7 +314,7 @@ if __name__ == '__main__':
         bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=topk,predictor=predictor)
         bs.do_search_mt(100,estimator=estimator)
 
-    # train()
-    beamsearch()
+    train()
+    # beamsearch()
 
 

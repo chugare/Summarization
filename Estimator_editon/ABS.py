@@ -116,8 +116,10 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
         else:
             mask = tf.zeros(shape=tf.shape(context))
 
-        prediction = ABS_model(source,context,mask,training)
+        prediction,attention_w = ABS_model(source,context,mask,training)
         pred = tf.argmax(prediction,-1)
+        prediction = prediction - tf.reduce_max(prediction,-1)
+
 
 
         if mode == tf.estimator.ModeKeys.TRAIN:
@@ -149,7 +151,7 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
                 self.start_time  = time.time()
                 self.ctime = time.time()
             def before_run(self, run_context):
-                return tf.estimator.SessionRunArgs({'source_input':source,'context':context,'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate,'PRED':prediction})
+                return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate,'PRED':prediction})
 
             def after_run(self, run_context, run_values):
 
@@ -164,7 +166,7 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
                         c_map[w] += 1
                     return c_map
 
-                if self.count % 1  == 0:
+                if run_values.results['global_step'] % 20  == 0:
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
@@ -179,7 +181,7 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
         #     summary_op=tf.summary.
         # )
 
-        return tf.estimator.EstimatorSpec(mode,{'target':prediction,'source_input':source,'context':context},loss,train_op,training_hooks=[TransformerRunHook()])
+        return tf.estimator.EstimatorSpec(mode,{'target':prediction},loss,train_op,training_hooks=[TransformerRunHook()])
 
     return model_fn
 
@@ -218,7 +220,6 @@ class ABSBeamSearcher(NewsBeamsearcher):
             searcher = self
             while len(searcher.gen_result) < searcher.max_count:
                 context = searcher.context.get()
-                print(context)
                 # buffer_lock.wait(2)
                 for c in context:
                     yield {'source':searcher.source_input,'context':c}, tf.constant(0)
@@ -233,43 +234,13 @@ class ABSBeamSearcher(NewsBeamsearcher):
 if __name__ == '__main__':
 
     def train():
-        model_fn = build_model_fn(seq_len=1)
+        model_fn = build_model_fn(seq_len=100)
         estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-        input_fn = build_input_fn("NEWS", DATA_PATH,batch_size=1,context_len=10,input_seq_len=1000,output_seq_len=1)
+        input_fn = build_input_fn("NEWS", DATA_PATH,batch_size=32,context_len=10,input_seq_len=1000,output_seq_len=100)
 
         estimator.train(input_fn,max_steps=10000000)
 
-
-    # def eval():
-    #     model_fn = build_model_fn()
-    #     estimator = tf.estimator.Estimator(model_fn, model_dir='./transformer', )
-    #     input_fn = build_input_fn("E_NEWS", "/home/user/zsm/Summarization/news_data",batch_size=32)
-    #     class EvalRunHook(tf.estimator.SessionRunHook):
-    #         def __init__(self):
-    #             self.count = 0
-    #             self.start_time  = time.time()
-    #             self.ctime = time.time()
-    #
-    #         def after_run(self, run_context, run_values):
-    #
-    #             self.count += 1
-    #             # a = np.mean(run_values.results['accuracy'])
-    #             if self.count % 1   == 0:
-    #                 ntime = time.time()
-    #                 dtime = ntime - self.ctime
-    #                 self.ctime = ntime
-    #                 print("Batch {0} : time_cost - {1:.2f} : all_time_cost - {2:.2f}".format(self.count, dtime, ntime- self.start_time))
-    #             pass
-    #     # estimator.train(input_fn,max_steps=1000000)
-    #     # estimator.evaluate(input_fn, 1000,hooks=[EvalRunHook()])
-    #     res = estimator.predict(input_fn,predict_keys=['target'])
-    #     for i in res:
-    #
-    #         print(i)
-    #
-    #
-
-    def beamsearch(topk = 100):
+    def beamsearch(topk = 1):
         tokenizer = tokenization(DICT_PATH,DictSize=100000)
         source_file = queue_reader("NEWS", DATA_PATH )
 
@@ -289,5 +260,5 @@ if __name__ == '__main__':
         bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor)
         bs.do_search_mt(100,estimator)
 
-    train()
-    # beamsearch()
+    # train()
+    beamsearch()

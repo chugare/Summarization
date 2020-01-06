@@ -52,7 +52,7 @@ class NewsBeamsearcher(Beamsearcher):
             while len(searcher.gen_result) < searcher.max_count:
 
                 # result_lock.acquire()
-                if len(searcher.buffer) == 0 or searcher.gen_len == max_step:
+                if len(searcher.buffer) == 0 or searcher.gen_len == max_step or len(searcher.end_map) == searcher.topk:
 
                     source, title = next(searcher.dataset)
                     searcher.source_input = source[:]
@@ -74,11 +74,12 @@ class NewsBeamsearcher(Beamsearcher):
                     if searcher.gen_len == 0:
                         candidate,score = buffer[0]
 
-                        for n in next_topk[0]:
+                        for i, n in enumerate(next_topk[0]):
                             ts = next_topk[0][n]
                             tc = candidate[:]
-                            # tc.append(n)
-                            tc.append(searcher.title_input[searcher.gen_len])
+                            tc.append(n)
+                            # tc.append(searcher.title_input[searcher.gen_len])
+
                             tmp_buffer.append((tc,score+ts))
 
                     else:
@@ -87,8 +88,8 @@ class NewsBeamsearcher(Beamsearcher):
                             for n in next_topk[i]:
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
-                                # tc.append(n)
-                                tc.append(searcher.title_input[searcher.gen_len])
+                                tc.append(n)
+                                # tc.append(searcher.title_input[searcher.gen_len])
 
                                 tmp_buffer.append((tc,score+ts))
 

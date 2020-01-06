@@ -26,12 +26,14 @@ class Attention(tf.keras.layers.Layer):
         self.P = tf.keras.layers.Dense(d_model)
     def call(self,x,y,mask):
         a = tf.matmul(x,self.P(y),transpose_b = True)
-        if mask is not None:
 
+        if mask is not None:
             a += mask * -1e9
+        a = tf.transpose(a,[0,2,1])
         a = tf.nn.softmax(a,axis=-1)
-        out = tf.matmul(a,x,transpose_a=True)
-        return out
+
+        out = tf.matmul(a,x)
+        return out,a
 
 
 
@@ -56,8 +58,8 @@ class ABSEncoder(tf.keras.layers.Layer):
         yc = tf.reshape(yc,[-1, self.seq_len , self.context_len * self.d_model])
         # mask = tf.tile(tf.expand_dims(mask,-1),[1,1,1,self.d_model])
         # mask = tf.reshape(mask,[-1, self.seq_len , self.context_len * self.d_model])
-        out = self.attention(x,yc,mask)
-        return out
+        out,attention_w= self.attention(x,yc,mask)
+        return out,attention_w
 
 class Decoder(tf.keras.layers.Layer):
     def __init__(self,d_model, seq_len,context_len, input_vocab_size,
@@ -89,7 +91,7 @@ class ABS(tf.keras.Model):
     def call(self,x,yc,mask,mode):
         # if mode == 'TRAIN':
 
-        enc = self.Encoder(x,yc,mode,mask)
+        enc, attention_w = self.Encoder(x,yc,mode,mask)
         p_out = self.Decoder(enc,yc)
-        return p_out
+        return p_out,attention_w
 
