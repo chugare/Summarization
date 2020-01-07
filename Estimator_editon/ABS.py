@@ -117,8 +117,8 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
             mask = tf.zeros(shape=tf.shape(context))
 
         prediction,attention_w = ABS_model(source,context,mask,training)
-        pred = tf.argmax(prediction,-1)
-        prediction = prediction - tf.reduce_max(prediction,-1)
+
+        prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
 
 
 
@@ -187,27 +187,24 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
 
 
 class ABSBeamSearcher(NewsBeamsearcher):
-    def __init__(self,dataset,tokenizer,topk,predictor,context_len,max_count = 10,):
-        super(ABSBeamSearcher,self).__init__(dataset,tokenizer,topk,predictor)
+    def __init__(self,dataset,tokenizer,topk,predictor,context_len,max_count):
+        super(ABSBeamSearcher,self).__init__(dataset,tokenizer,topk,predictor,max_count)
         self.context_len = context_len
 
 
     def get_context(self,max_step):
         title_context = []
-
         for s in self.buffer:
             if self.gen_len > self.context_len:
                 context = s[0][self.gen_len-self.context_len:self.gen_len]
             else:
                 context = [0]*(self.context_len-self.gen_len)
                 context.extend(s[0][:self.gen_len])
-
             val = []
             val.append(context)
             # val.extend(padding)
             title_context.append(val)
-            print(self.tokenizer.get_sentence(s[0][:]))
-
+            # print(self.tokenizer.get_sentence(s[0][:]))
         return title_context
     def get_pred_map(self,pred):
 
@@ -257,8 +254,10 @@ if __name__ == '__main__':
         model_fn = build_model_fn(seq_len=1)
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
         predictor = NewsPredictor(estimator,topk)
-        bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor)
+        bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=100)
         bs.do_search_mt(100,estimator)
+        bs.write_report(None)
 
-    # train()
-    beamsearch()
+
+    train()
+    # beamsearch(1)

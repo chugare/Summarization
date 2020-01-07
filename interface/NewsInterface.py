@@ -51,21 +51,22 @@ class NewsBeamsearcher(Beamsearcher):
         def fill_data(searcher):
             while len(searcher.gen_result) < searcher.max_count:
 
-                # result_lock.acquire()
-                if len(searcher.buffer) == 0 or searcher.gen_len == max_step or len(searcher.end_map) == searcher.topk:
-
+                if len(searcher.buffer) == 0 or searcher.gen_len == max_step:
+                    if searcher.gen_len == max_step:
+                        searcher.gen_result.append((searcher.buffer[-1][0],searcher.title_input))
+                        print('第{0}步生成的内容：'.format(len(searcher.gen_result)))
+                        print(searcher.tokenizer.get_sentence(searcher.buffer[-1][0]))
                     source, title = next(searcher.dataset)
                     searcher.source_input = source[:]
                     searcher.title_input = title[:]
 
-                    if searcher.gen_len == max_step:
-                        searcher.gen_result.append(searcher.buffer)
+
                     searcher.buffer = []
                     for i in range(searcher.topk):
                         searcher.buffer.append(([],0))
                     searcher.gen_len = 0
-                    searcher.next_topk = queue.Queue(1)
-                    searcher.context = queue.Queue(1)
+                    searcher.next_topk.empty()
+                    searcher.context.empty()
                 else:
 
                     tmp_buffer = []
@@ -77,9 +78,10 @@ class NewsBeamsearcher(Beamsearcher):
                         for i, n in enumerate(next_topk[0]):
                             ts = next_topk[0][n]
                             tc = candidate[:]
-                            tc.append(n)
-                            # tc.append(searcher.title_input[searcher.gen_len])
-
+                            if n==1:
+                                tc.append(searcher.source_input[0])
+                            else:
+                                tc.append(n)
                             tmp_buffer.append((tc,score+ts))
 
                     else:
@@ -88,46 +90,56 @@ class NewsBeamsearcher(Beamsearcher):
                             for n in next_topk[i]:
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
-                                tc.append(n)
+
+                                if tc[-1] == 1:
+                                    tc.append(1)
+                                    ts = score
+                                else:
+                                    tc.append(n)
+                                    ts = score + ts
+
                                 # tc.append(searcher.title_input[searcher.gen_len])
 
-                                tmp_buffer.append((tc,score+ts))
+                                tmp_buffer.append((tc,ts))
 
                     tmp_buffer = sorted(tmp_buffer,key=lambda x:x[1])
                     tmp_buffer = tmp_buffer[-searcher.topk:]
                     searcher.buffer = tmp_buffer
                     searcher.gen_len += 1
+                #
+                # if searcher.gen_len>0:
+                #     print('第{0}步生成的内容：'.format(searcher.gen_len))
 
-                if searcher.gen_len>0:
-                    print('第{0}步生成的内容：'.format(searcher.gen_len))
-
-                context = searcher.get_context(max_step)
-
-                searcher.context.put(context)
+                if len(searcher.buffer) > 0:
+                    c = np.sum([1 if len(l[0])>0 and l[0][-1] == 1 else 0 for l in searcher.buffer])
+                else:
+                    c = 0
+                if c == searcher.topk:
+                    searcher.gen_len = max_step
+                else:
+                    context = searcher.get_context(max_step)
+                    searcher.context.put(context)
 
         pred = estimator.predict(self.get_input_fn(),['target','source_input','context'],yield_single_examples=False)
 
         def get_next(searcher):
 
             while len(searcher.gen_result) < searcher.max_count:
-                # result_lock.acquire()
-                res_v = []
-                res = next(pred)
-                # print('生成下一步')
+                try:
+                    res_v = []
+                    res = next(pred)
+                    res = searcher.get_pred_map(res)
+                    for i,v in enumerate(res):
+                        vmap = v
+                        sort_res = np.argsort(vmap)[-searcher.topk:]
+                        map_res = {}
+                        for k in sort_res:
+                            map_res[k] = vmap[k]
+                        res_v.append(map_res)
 
-                res = searcher.get_pred_map(res)
-                for i,v in enumerate(res):
-                    # vmap = v[searcher.gen_len-1]
-                    vmap = v
-                    sort_res = np.argsort(vmap)[-searcher.topk:]
-                    map_res = {}
-                    for k in sort_res:
-                        map_res[k] = vmap[k]
-                    res_v.append(map_res)
-
-                searcher.next_topk.put(res_v)
-                # result_lock.notify()
-                # buffer_lock.release()
+                    searcher.next_topk.put(res_v)
+                except StopIteration:
+                    return
 
         producer = threading.Thread(target=fill_data,args=(self,))
         consumer = threading.Thread(target=get_next,args=(self,))

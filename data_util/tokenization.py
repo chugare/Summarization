@@ -101,12 +101,12 @@ class tokenization:
         for i in range(len(indexArr)):
             if cutSize != None:
                 if indexArr[i] > 1:
-                    res += ' ' + (self.N2GRAM[indexArr[i]])
+                    res += '' + (self.N2GRAM[indexArr[i]])
                 if len(res)>cutSize or indexArr[i] == 1:
                     break
             else:
                 if indexArr[i] != 1:
-                    res+=' ' + (self.N2GRAM[indexArr[i]])
+                    res += '' + (self.N2GRAM[indexArr[i]])
                 else:
                     break
 
