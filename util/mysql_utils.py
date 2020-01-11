@@ -15,6 +15,7 @@ def get_by_source(source):
 
 
     try:
+
         cur.execute("select * from news_obj where source=\'%s\'" % source)
 
         res = cur.fetchall()
