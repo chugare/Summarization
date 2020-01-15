@@ -14,6 +14,17 @@ from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 MODEL_PATH = './transformer'
 DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
 DATA_PATH = '/home/user/zsm/Summarization/news_data'
+
+
+NUM_LAYERS=3
+D_MODEL=200
+NUM_HEAD=8
+DFF=512
+VOCAB_SIZE=100000
+INPUT_LENGTH=1000
+OUTPUT_LENGTH=100
+
+
 def create_masks(inp, tar):
     # 编码器填充遮挡
     enc_padding_mask = create_padding_mask(inp)
@@ -69,9 +80,9 @@ def build_input_fn(name,data_set,batch_size = 32):
 
 
 
-def build_model_fn(lr = 0.01,num_layers=3,d_model=200,num_head=8,dff=512,input_vocab_size=100000,
-                            target_vocab_size=100000,
-                            pe_input=1000,pe_target=100):
+def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
+                            target_vocab_size,
+                            pe_input,pe_target):
 
     learning_rate = lr
     #
@@ -265,7 +276,9 @@ if __name__ == '__main__':
 
 
     def eval():
-        model_fn = build_model_fn()
+        model_fn = build_model_fn(lr =0.01,num_layers=NUM_LAYERS,d_model=D_MODEL,num_head=NUM_HEAD,dff=DFF,input_vocab_size=VOCAB_SIZE,
+                                  target_vocab_size=VOCAB_SIZE,
+                                  pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
         input_fn = build_input_fn("E_NEWS", DATA_PATH,batch_size=3200)
         class EvalRunHook(tf.estimator.SessionRunHook):
@@ -306,7 +319,9 @@ if __name__ == '__main__':
                 yield  source,title
         g = _g()
 
-        model_fn = build_model_fn()
+        model_fn = build_model_fn(lr =0.01,num_layers=NUM_LAYERS,d_model=D_MODEL,num_head=NUM_HEAD,dff=DFF,input_vocab_size=VOCAB_SIZE,
+                                  target_vocab_size=VOCAB_SIZE,
+                                  pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH )
 
         predictor = NewsPredictor(estimator,topk)
