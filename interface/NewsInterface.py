@@ -1,7 +1,8 @@
 import numpy as np
 from interface.BeamSearch import *
 import tensorflow as tf
-
+import json
+import os,time,sys
 
 class NewsPredictor(Predictor):
     def __init__(self,estimator,topk = None):
@@ -14,7 +15,7 @@ class NewsPredictor(Predictor):
             return {'source':tf.constant(source),'context':tf.constant(context),'con_len':tf.constant(con_len)},tf.constant(0)
             # return tf.data.Dataset.from_generator(lambda :{'source':tf.constant(source),'context':tf.constant(context),'con_len':tf.constant(con_len)},tf.constant(0))
 
-        pred = self.estimator.predict(input_fn,['target','source_input','context'],yield_single_examples=False)
+        pred = self.estimator.predict(input_fn,['target'],yield_single_examples=False)
         res_v = []
         res = next(pred)
         for i,v in enumerate(res['target']):
@@ -42,6 +43,28 @@ class NewsBeamsearcher(Beamsearcher):
     def get_input_fn(self):
         pass
 
+    def report(self,fname):
+
+        data = []
+        fname = fname.split('.json')[0] if fname.endswith('.json') else fname
+        count = int(fname.split('_')[1]) if '_' in fname else 0
+        while os.path.exists(fname):
+            fname = fname.split('_')[0]+'_%d'%count
+            count += 1
+        fname += '.json'
+        for gen, ref, source in self.gen_result:
+            data.append({
+                'gen':self.tokenizer.get_sentence(gen),
+                'ref':self.tokenizer.get_sentence(ref),
+                'source':self.tokenizer.get_sentence(source)
+            })
+        with open(fname,'w',encoding='utf-8') as jsfile:
+            json.dump(data,jsfile,ensure_ascii=False)
+
+
+
+
+
     def do_search_mt(self,max_step,estimator):
         # buffer_lock = threading.RLock()
         # # result_lock = threading.RLock()
@@ -53,7 +76,8 @@ class NewsBeamsearcher(Beamsearcher):
 
                 if len(searcher.buffer) == 0 or searcher.gen_len == max_step:
                     if searcher.gen_len == max_step:
-                        searcher.gen_result.append((searcher.buffer[-1][0],searcher.title_input))
+                        searcher.gen_result.append((searcher.buffer[-1][0],searcher.title_input,searcher.source_input))
+
                         print('第{0}步生成的内容：'.format(len(searcher.gen_result)))
                         print(searcher.tokenizer.get_sentence(searcher.buffer[-1][0]))
                     source, title = next(searcher.dataset)
@@ -120,7 +144,7 @@ class NewsBeamsearcher(Beamsearcher):
                     context = searcher.get_context(max_step)
                     searcher.context.put(context)
 
-        pred = estimator.predict(self.get_input_fn(),['target','source_input','context'],yield_single_examples=False)
+        pred = estimator.predict(self.get_input_fn(),['target'],yield_single_examples=False)
 
         def get_next(searcher):
 
@@ -148,3 +172,4 @@ class NewsBeamsearcher(Beamsearcher):
 
         producer.join()
         consumer.join()
+

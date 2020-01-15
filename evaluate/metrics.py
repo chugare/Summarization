@@ -5,7 +5,7 @@ import jieba
 from util import Tool
 
 
-def generate_BLEU(fname):
+def BLEU(fname):
     score_sum = 0
     dfile = open(fname,'r',encoding='utf-8')
     data = json.load(dfile)
@@ -20,7 +20,9 @@ def generate_BLEU(fname):
         count += 1
         score_sum += score
     return score_sum/count
-def generate_ROUGE(fname):
+
+
+def ROUGE(fname):
     score_sum = 0
     dfile = open(fname,'r',encoding='utf-8')
     data = json.load(dfile)
@@ -55,13 +57,17 @@ def generate_ROUGE(fname):
             avg[t][r] = float(sum[t][r]) / count
         print("%s %f" % (t, avg[t]['r']))
     return score_sum/count
-def calcWordNum(gen):
+
+
+def WordNum(gen):
     words = jieba.lcut(gen)
     word_dic = {}
     for w in words:
             word_dic[w] = word_dic.get(w,0)+1
     return len(word_dic)
-def calcIdfAverage(gen):
+
+
+def IdfAverage(gen):
     tfidf = Tool.Tf_idf()
     words = jieba.lcut(gen)
     idfsum = 0
@@ -71,6 +77,8 @@ def calcIdfAverage(gen):
             idfsum += tfidf.idf[w]
             c += 1
     return idfsum/c
+
+
 def generate_ALL(fname):
     score_sum = 0
     dfile = open(fname, 'r', encoding='utf-8')
@@ -83,8 +91,8 @@ def generate_ALL(fname):
     wordIdfSum = 0.0
     for d in data:
         gen = d['gen']
-        wordCount = calcWordNum(gen)
-        wordIdf = calcIdfAverage(gen)
+        wordCount = WordNum(gen)
+        wordIdf = IdfAverage(gen)
         wordNumSum += wordCount
         wordIdfSum += wordIdf
         gen = ' '.join([i for i in gen])
@@ -122,6 +130,3 @@ def generate_ALL(fname):
     # print('BLEU %f'%BLEUAvg)
     # print('WordNUM %f'%wordNumAvg)
     # print('WordIDF %f'%wordIdfAvg)
-generate_ALL('F:\\python\\Result_RP\\result.json')
-# generate_BLEU('result.json')
-# generate_ROUGE('result.json')

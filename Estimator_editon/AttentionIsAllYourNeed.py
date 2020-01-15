@@ -198,7 +198,8 @@ def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
-                    print("Batch {0} : loss - {1:.3f} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time))
+                    print("Batch {0} : loss - {1:.3f} :lr - {5:.2e} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(
+                        run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time,run_values.results['learning_rate']))
                     # print(statis(run_values.results['PRED']))
                 pass
         # summaryHook = tf.estimator.SummarySaverHook(

@@ -170,7 +170,8 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
-                    print("Batch {0} : loss - {1:.3f} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time))
+                    print("Batch {0} : loss - {1:.3f} :lr - {5:.2e} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(
+                        run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time,run_values.results['learning_rate']))
                     # print(run_values.results['PRED'])
 
                 pass
@@ -237,7 +238,7 @@ if __name__ == '__main__':
 
         estimator.train(input_fn,max_steps=10000000)
 
-    def beamsearch(topk = 1):
+    def beamsearch(topk,case_num):
         tokenizer = tokenization(DICT_PATH,DictSize=100000)
         source_file = queue_reader("NEWS", DATA_PATH )
 
@@ -255,9 +256,9 @@ if __name__ == '__main__':
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
         predictor = NewsPredictor(estimator,topk)
         bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=100)
-        bs.do_search_mt(100,estimator)
-        bs.write_report(None)
+        bs.do_search_mt(case_num,estimator)
+        bs.report('ABS')
 
 
     train()
-    # beamsearch(1)
+    # beamsearch(1,50)

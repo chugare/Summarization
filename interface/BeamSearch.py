@@ -23,15 +23,8 @@ class Beamsearcher:
 
         self.max_count = max_count
         self.context = queue.Queue(1)
-
-    def write_report(self,fp):
-
-        for pred,truth in self.gen_result:
-            pred = self.tokenizer.get_sentence(pred)
-            truth = self.tokenizer.get_sentence(truth)
-            print(pred)
-            print(truth)
-            # fp.write()
+    def report(self,fname):
+        pass
 
     def do_search(self,max_step):
         for case in self.dataset:

@@ -40,6 +40,8 @@ def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_
                 source_sequence = tokenizer.padding(source_sequence,input_seq_len)
                 title_sequence = tokenizer.tokenize(title)
                 title_sequence = tokenizer.padding(title_sequence,output_seq_len)
+                title_sequence.insert(0,2)
+
                 # title_context.append([0]*context_le)
 
                 feature = {
@@ -52,7 +54,7 @@ def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_
             except Exception:
                 continue
     def input_fn():
-        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'last_word':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[input_seq_len],'last_word':[],'title':[output_seq_len]},[]))
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'last_word':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[input_seq_len],'last_word':[],'title':[output_seq_len+1]},[]))
         ds = ds.shuffle(8192).batch(batch_size).cache().repeat()
         return ds
     return input_fn
@@ -116,7 +118,8 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
 
         if mode == tf.estimator.ModeKeys.TRAIN:
             title = features['title']
-            title_real = title
+            title_real = title[:,1:]
+            title_input = title[:,:-1]
             mask = create_padding_mask(title_real)
 
             prediction, decoder_state = RNNS2S_model(source,None,title_real,mode,None,mask = mask)
@@ -125,7 +128,7 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
 
             loss = loss_function(title_real,prediction)
             learning_rate = CustomSchedule(d_model)(global_step)
-            optimizer = tf.compat.v1.train.AdamOptimizer(lr,beta1=0.9, beta2=0.98,
+            optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
                                                          epsilon=1e-9)
             train_accuracy = accuracy_function(title_real, prediction)
             grads = optimizer.compute_gradients(loss)
@@ -178,7 +181,7 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
-                    print("Batch {0} : loss - {1:.3f} :lr - {5:.2f} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(
+                    print("Batch {0} : loss - {1:.3f} :lr - {5:.2e} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(
                         run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time,run_values.results['learning_rate']))
                     pred = np.argmax(run_values.results['PRED'],-1)
                     pred_o = statis(pred)
@@ -262,8 +265,8 @@ if __name__ == '__main__':
         predictor = NewsPredictor(estimator,topk)
         bs = S2SBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=100)
         bs.do_search_mt(100,estimator)
-        bs.write_report(None)
+        bs.report('s2s_lstm')
 
 
-    train()
-    # beamsearch(1)
+    # train()
+    beamsearch(1)
