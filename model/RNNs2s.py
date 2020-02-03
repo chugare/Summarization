@@ -27,7 +27,7 @@ class Attention(tf.keras.layers.Layer):
 
 
 class LSTMencoder(tf.keras.layers.Layer):
-    def __init__(self,d_model, input_vocab_size,size,layer_num):
+    def __init__(self,d_model, input_vocab_size,size,layer_num,batch_size=None):
         super(LSTMencoder,self).__init__()
         self.cell = []
         for i in range(layer_num):
@@ -42,42 +42,49 @@ class LSTMencoder(tf.keras.layers.Layer):
 
 
 class LSTMdecoder(tf.keras.layers.Layer):
-    def __init__(self,d_model, input_vocab_size,size,layer_num):
+    def __init__(self,d_model, input_vocab_size,size,layer_num,batch_size=None):
         super(LSTMdecoder, self).__init__()
 
         self.cell = tf.keras.layers.LSTMCell(units=size,dropout=0.1)
 
-        self.rnn_layer = tf.keras.layers.RNN(self.cell,return_sequences = True,return_state=True)
+        # self.rnn_layer = tf.keras.layers.RNN(self.cell,return_sequences = True,return_state=True)
+        self.rnn_layer = tf.keras.layers.LSTM(units=size,return_sequences=True)
         self.Embedding = tf.keras.layers.Embedding(input_vocab_size,d_model)
         self.d_model = d_model
         self.DecoderInputDense = tf.keras.layers.Dense(d_model)
         pass
-    def call(self,enc_vec,init_state,last_word,label_seq,mode):
+    def call(self,enc_vec,last_word,label_seq,mode):
+
         if mode == 'train':
             label_seq_embedding = self.Embedding(label_seq)
-
-            # 对outword使用attention或者直接使用
             seq_len = tf.shape(label_seq)[-1]
+
             enc_vec = tf.reshape(tf.tile(enc_vec,[1,seq_len]),[-1,seq_len,self.d_model])
-            #
             enc_vec = tf.math.l2_normalize(enc_vec,-1)
+
+        # 对outword使用attention或者直接使用
             label_seq_embedding = tf.math.l2_normalize(label_seq_embedding,-1)
             decoder_input = tf.concat([enc_vec,label_seq_embedding],axis = -1)
             decoder_input = self.DecoderInputDense(decoder_input)
             # decoder_input = label_seq_embedding
-            decoder_output, decoder_states_c,decoder_states_s = self.rnn_layer(decoder_input)
-            # return decoder_output, [decoder_states_c,decoder_states_s]
-            return decoder_output,decoder_input
+            decoder_output = self.rnn_layer(decoder_input)
+            # decoder_output, decoder_states_c,decoder_states_m = self.rnn_layer(decoder_input)
+            # return decoder_output, [decoder_states_c,decoder_states_m]
+            return decoder_output
             #
             # res = self.rnn_layer(decoder_input)
             # print(res)
             # return res
         else:
             last_word_embedding = self.Embedding(last_word)
-            # if init_state is None:
-            decoder_output,decoder_states = self.cell(last_word_embedding,init_state)
-            return decoder_output,decoder_states
+            enc_vec = tf.math.l2_normalize(enc_vec,-1)
 
+            decoder_input = tf.concat([enc_vec,last_word_embedding],axis = -1)
+            decoder_input = self.DecoderInputDense(decoder_input)
+
+            # if init_state is None:
+            decoder_output = self.rnn_layer(decoder_input)
+            return decoder_output
 
 
 
@@ -86,22 +93,22 @@ class LSTMdecoder(tf.keras.layers.Layer):
 
 class RNNS2Smodel(tf.keras.Model):
 
-    def __init__(self,d_model, input_vocab_size,encoder_size,encoder_layer_num,decoder_size,decoder_layer_num):
+    def __init__(self,d_model, input_vocab_size,encoder_size,encoder_layer_num,decoder_size,decoder_layer_num,batch_size=None):
         super(RNNS2Smodel, self).__init__()
 
         self.encoder = LSTMencoder(d_model=d_model,input_vocab_size=input_vocab_size,size=encoder_size,
-                                   layer_num=encoder_layer_num)
+                                   layer_num=encoder_layer_num,batch_size=batch_size)
         self.decoder = LSTMdecoder(d_model=d_model,input_vocab_size=input_vocab_size,size=decoder_size,
-                                   layer_num=decoder_layer_num)
+                                   layer_num=decoder_layer_num,batch_size=batch_size)
         self.final_layer = tf.keras.layers.Dense(input_vocab_size)
         pass
 
-    def call(self,source,last_word,label,mode,init_state,mask):
+    def call(self,source,last_word,label,mode,mask):
         enc_vec = self.encoder(source)
         # enc_vec = None
-        decoder_output, decoder_state = self.decoder(enc_vec,init_state,last_word,label,mode)
+        decoder_output = self.decoder(enc_vec,last_word,label,mode)
         decoder_output = self.final_layer(decoder_output)
-        return decoder_output,decoder_state
+        return decoder_output
 
 
 

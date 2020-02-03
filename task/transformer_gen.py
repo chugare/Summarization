@@ -2,7 +2,7 @@ import tensorflow as tf
 import time
 import traceback
 from model.transformer import Transformer,create_padding_mask,create_look_ahead_mask
-from Estimator_editon.AttentionIsAllYourNeed import build_input_fn
+from Estimator_edition.AttentionIsAllYourNeed import build_input_fn
 train_step_signature = [
     tf.TensorSpec(shape=(None, None), dtype=tf.int64),
     tf.TensorSpec(shape=(None, None), dtype=tf.int64),

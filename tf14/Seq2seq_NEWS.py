@@ -1,33 +1,76 @@
-import logging
-import os
-import random
-import sys
-import time
-import json
-import numpy as np
-import tensorflow as tf
-from util.Tool import  Tf_idf
-from data_util.data_pipe import DictFreqThreshhold, WordVec
-from data_util.tokenization import tokenization
-from meta.Meta import Meta
+import sys,threading,queue
 sys.path.append('/home/user/zsm/Summarization')
+import tensorflow as tf
+import numpy as np
+from data_util.tokenization import tokenization
+from util.file_utils import queue_reader
+from model.RNNs2s import RNNS2Smodel,create_padding_mask
 
-class Meta_l(Meta):
+import time
+from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 
-    def get_meta(self):
-        return self.__dict__
+
+# estimator 的s2s验证实在是难写，回到1.4版本的训练方式
+
+
+MODEL_PATH = './RNNs2s'
+DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
+DATA_PATH = '/home/user/zsm/Summarization/news_data'
+
+D_MODEL = 200
+ENCODE_SIZE = 256
+ENCODER_NUM = 3
+DECODER_SIZE = 256
+DECODER_NUM = 3
+VOCAB_SIZE = 100000
+
+
+def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_len = 100):
+
+    def generator():
+        tokenizer = tokenization(DICT_PATH,DictSize=100000)
+        source_file = queue_reader(name,data_set)
+        for line in source_file:
+            try:
+                example = line.split('#')
+                title = example[0]
+                desc = example[1]
+                content = example[2]
+                title = title.split(' ')
+                content = content.split(' ')
+                source_sequence = tokenizer.tokenize(content)
+                source_sequence = tokenizer.padding(source_sequence,input_seq_len)
+                title_sequence = tokenizer.tokenize(title)
+                title_sequence = tokenizer.padding(title_sequence,output_seq_len)
+                title_sequence.insert(0,2)
+
+                # title_context.append([0]*context_le)
+
+                feature = {
+                    'source':source_sequence,
+                    'last_word': 0,
+                    'title':title_sequence,
+                }
+                #     yield feature,label
+                yield feature,0
+            except Exception:
+                continue
+    def input_fn():
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'last_word':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[input_seq_len],'last_word':[],'title':[output_seq_len+1]},[]))
+        ds = ds.shuffle(8192).batch(batch_size).cache().repeat()
+        return ds
+    return input_fn
+
+
 
 
 class Data:
     def __init__(self,**kwargs):
-        self.SourceFile = 'DP.txt'
-        self.TaskName = 'DP'
-        self.Name = 'DP_gen'
-        self.DictName = "DP_DICT.txt"
-        self.DictSize = 80000
-        self.FlagNum = 60
-        self.TopicNum = 30
-        self.KeyWordNum = 5
+        self.SourceFile = DATA_PATH
+        self.TaskName = 'NEWS_RNNs2s'
+        self.Name = 'NEWS_RNNS2S'
+        self.DictName = DICT_PATH
+        self.DictSize = 100000
         self.VecSize = 300
         self.MaxSentenceSize = 100
         for k in kwargs:
@@ -168,6 +211,8 @@ class Model:
         tf.add_to_collection('l2norm',l2_norm)
         return var
     def build_model(self,mode):
+
+        source =
 
         SentenceVector = tf.placeholder(dtype=tf.float32,
                                         shape=[self.BatchSize, self.MaxSentenceLength, self.VecSize],

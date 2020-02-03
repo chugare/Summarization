@@ -2,7 +2,7 @@ from data_util.data_source import DatasetBuilder
 from data_util.BatchWriter import BatchWriter,SegFileBatchWriter
 import json,jieba
 from util.mysql_utils import get_by_source
-
+import random
 
 
 class NewsDatasetBuilder(DatasetBuilder):
@@ -74,14 +74,27 @@ class NewsDatasetFromMysql:
         self.sources = sources
     def build(self):
         BR = BatchWriter(open("NEWS.txt",'w',encoding='utf-8'))
+        BRE = BatchWriter(open("E_NEWS.txt",'w',encoding='utf-8'))
+        E_size = 200
+        E_c = 0
         for source in self.sources:
             res = get_by_source(source)
             for line in res:
                 ID,title,source,length,content = line
                 title = jieba.lcut(title)
                 content = jieba.lcut(content)
-                BR.write(' '.join(title)+'#'+source+'#'+' '.join(content))
+
+                if E_c < E_size:
+                    rs = random.randint(0,100)
+                    if rs <= 3:
+                        BRE.write(' '.join(title)+'#'+source+'#'+' '.join(content))
+                        E_c += 1
+                    else:
+                        BR.write(' '.join(title)+'#'+source+'#'+' '.join(content))
+                else:
+                    BR.write(' '.join(title)+'#'+source+'#'+' '.join(content))
         BR.close()
+        BRE.close()
 
 
 

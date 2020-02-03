@@ -130,3 +130,5 @@ def generate_ALL(fname):
     # print('BLEU %f'%BLEUAvg)
     # print('WordNUM %f'%wordNumAvg)
     # print('WordIDF %f'%wordIdfAvg)
+
+generate_ALL('../Estimator_edition/ABS_0.json')

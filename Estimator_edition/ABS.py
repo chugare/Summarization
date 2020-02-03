@@ -255,8 +255,8 @@ if __name__ == '__main__':
         model_fn = build_model_fn(seq_len=1)
         estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
         predictor = NewsPredictor(estimator,topk)
-        bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=100)
-        bs.do_search_mt(case_num,estimator)
+        bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=case_num)
+        bs.do_search_mt(100,estimator)
         bs.report('ABS')
 
 

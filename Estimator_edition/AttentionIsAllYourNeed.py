@@ -16,7 +16,7 @@ DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
 DATA_PATH = '/home/user/zsm/Summarization/news_data'
 
 
-NUM_LAYERS=3
+NUM_LAYERS=5
 D_MODEL=200
 NUM_HEAD=8
 DFF=512
@@ -269,7 +269,9 @@ if __name__ == '__main__':
     # for s,t in g:
     #     print(s)
     def train():
-        model_fn = build_model_fn()
+        model_fn = build_model_fn(lr =0.01,num_layers=NUM_LAYERS,d_model=D_MODEL,num_head=NUM_HEAD,dff=DFF,input_vocab_size=VOCAB_SIZE,
+                                  target_vocab_size=VOCAB_SIZE,
+                                  pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
         estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
         input_fn = build_input_fn("NEWS",DATA_PATH)
 
@@ -327,7 +329,8 @@ if __name__ == '__main__':
 
         predictor = NewsPredictor(estimator,topk)
 
-        bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=topk,predictor=predictor)
+        bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=topk,predictor=predictor,max_count=100)
+
         bs.do_search_mt(100,estimator=estimator)
 
     train()

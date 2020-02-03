@@ -1,8 +1,10 @@
 import numpy as np
 from interface.BeamSearch import *
+from  interface.RepeatPunish import  doRP_simple
 import tensorflow as tf
 import json
 import os,time,sys
+
 
 class NewsPredictor(Predictor):
     def __init__(self,estimator,topk = None):
@@ -42,7 +44,8 @@ class NewsBeamsearcher(Beamsearcher):
         pass
     def get_input_fn(self):
         pass
-
+    def set_rpcore(self,rp_core):
+        self.rpcore = rp_core
     def report(self,fname):
 
         data = []
@@ -65,7 +68,7 @@ class NewsBeamsearcher(Beamsearcher):
 
 
 
-    def do_search_mt(self,max_step,estimator):
+    def do_search_mt(self,max_step,estimator,rp_core = None):
         # buffer_lock = threading.RLock()
         # # result_lock = threading.RLock()
         # buffer_lock = threading.Condition(1)
@@ -155,11 +158,14 @@ class NewsBeamsearcher(Beamsearcher):
                     res = searcher.get_pred_map(res)
                     for i,v in enumerate(res):
                         vmap = v
+                        if rp_core is not  None:
+                            rp_core.do()
                         sort_res = np.argsort(vmap)[-searcher.topk:]
                         map_res = {}
                         for k in sort_res:
                             map_res[k] = vmap[k]
                         res_v.append(map_res)
+
 
                     searcher.next_topk.put(res_v)
                 except StopIteration:

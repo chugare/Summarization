@@ -1,5 +1,5 @@
 
-import sys
+import sys,threading,queue
 sys.path.append('/home/user/zsm/Summarization')
 import tensorflow as tf
 import numpy as np
@@ -122,8 +122,7 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             title_input = title[:,:-1]
             mask = create_padding_mask(title_real)
 
-            prediction, decoder_state = RNNS2S_model(source,None,title_real,mode,None,mask = mask)
-
+            prediction, decoder_input = RNNS2S_model(source,None,title_real,mode,None,mask = mask)
             prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
 
             loss = loss_function(title_real,prediction)
@@ -137,17 +136,19 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             grad, var = zip(*grads)
             tf.clip_by_global_norm(grad, 0.5)
             grads = zip(grad, var)
-
+            decoder_states_m = tf.constant(0)
+            decoder_states_c = tf.constant(0)
             train_op = optimizer.apply_gradients(grads, global_step=global_step)
 
             tf.summary.scalar('accuracy',train_accuracy)
         else:
 
             mask = tf.zeros(shape=tf.shape(last_word))
-            init_state = features['init_state']
+            state_m = features['state_m']
+            state_c = features['state_c']
 
-            prediction,attention_w = RNNS2S_model(source,last_word,None,mode,init_state,mask = mask)
-
+            prediction,decoder_states = RNNS2S_model(source,last_word,None,mode,[state_m,state_c],mask = mask)
+            decoder_states_m,decoder_states_c = decoder_states
             prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
 
             loss = tf.constant(0)
@@ -162,7 +163,7 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             def before_run(self, run_context):
                 return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,
                                                     'learning_rate':learning_rate,'PRED':prediction,'title':title_real,
-                                                    'decoder_state':decoder_state})
+                                                    'decoder_state':decoder_states_c})
 
             def after_run(self, run_context, run_values):
 
@@ -190,7 +191,7 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
                 pass
 
 
-        return tf.estimator.EstimatorSpec(mode,{'target':prediction},loss,train_op,training_hooks=[TransformerRunHook()])
+        return tf.estimator.EstimatorSpec(mode,{'target':prediction,'state_c':decoder_states_c,'state_m':decoder_states_m},loss,train_op,training_hooks=[TransformerRunHook()])
 
     return model_fn
 
@@ -201,37 +202,137 @@ class S2SBeamSearcher(NewsBeamsearcher):
         self.context_len = context_len
 
 
-    def get_context(self,max_step):
-        title_context = []
-        for s in self.buffer:
-            if self.gen_len > self.context_len:
-                context = s[0][self.gen_len-self.context_len:self.gen_len]
-            else:
-                context = [0]*(self.context_len-self.gen_len)
-                context.extend(s[0][:self.gen_len])
-            val = []
-            val.append(context)
-            # val.extend(padding)
-            title_context.append(val)
-            # print(self.tokenizer.get_sentence(s[0][:]))
-        return title_context
+
     def get_pred_map(self,pred):
-        return pred['target'][:,0,:]
+        return pred['target'][:,0,:],pred['state_c'],pred['state_m']
 
 
     def get_input_fn(self):
         def data_generator():
             searcher = self
             while len(searcher.gen_result) < searcher.max_count:
-                context = searcher.context.get()
+                state_c,state_m = searcher.state.get()
                 # buffer_lock.wait(2)
-                for c in context:
-                    yield {'source':searcher.source_input,'context':c}, tf.constant(0)
+                yield {'source':searcher.source_input,'state_c':state_c,'state_m':state_m,'last_word':10}, tf.constant(0)
 
         def input_fn():
-            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'last_word':tf.int64},tf.int64),output_shapes=({'source':[1000],'last_word':[]},[])).batch(self.topk)
+            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'last_word':tf.int64,'state_c':tf.float32,'state_m':tf.float32},tf.int64),
+                                                  output_shapes=({'source':[1000],'last_word':[],'state_c':[DECODER_NUM,DECODER_SIZE],'state_m':[DECODER_NUM,DECODER_SIZE]},[])).batch(self.topk)
         return input_fn
+    def do_search_mt(self,max_step,estimator,rp_core = None):
+        # buffer_lock = threading.RLock()
+        # # result_lock = threading.RLock()
+        # buffer_lock = threading.Condition(1)
+        # result_lock = threading.BoundedSemaphore(self.topk)
 
+        self.state = queue.Queue(1)
+
+        def fill_data(searcher):
+            while len(searcher.gen_result) < searcher.max_count:
+
+                if len(searcher.buffer) == 0 or searcher.gen_len == max_step:
+                    if searcher.gen_len == max_step:
+                        searcher.gen_result.append((searcher.buffer[-1][0],searcher.title_input,searcher.source_input))
+
+                        print('第{0}步生成的内容：'.format(len(searcher.gen_result)))
+                        print(searcher.tokenizer.get_sentence(searcher.buffer[-1][0]))
+                    source, title = next(searcher.dataset)
+                    searcher.source_input = source[:]
+                    searcher.title_input = title[:]
+
+
+                    searcher.buffer = []
+                    for i in range(searcher.topk):
+                        searcher.buffer.append(([],0))
+                    searcher.gen_len = 0
+                    searcher.next_topk.empty()
+                    searcher.state.empty()
+                    state_c = np.zeros([DECODER_NUM,DECODER_SIZE],np.float32)
+                    state_m = np.zeros([DECODER_NUM,DECODER_SIZE],np.float32)
+                else:
+
+                    tmp_buffer = []
+                    buffer = searcher.buffer
+                    next_topk , state_c , state_m = searcher.next_topk.get()
+                    if searcher.gen_len == 0:
+                        candidate,score = buffer[0]
+
+                        for i, n in enumerate(next_topk[0]):
+                            ts = next_topk[0][n]
+                            tc = candidate[:]
+                            if n==1:
+                                tc.append(searcher.source_input[0])
+                            else:
+                                tc.append(n)
+                            tmp_buffer.append((tc,score+ts))
+
+                    else:
+                        for i, val in enumerate(buffer):
+                            candidate,score = val
+                            for n in next_topk[i]:
+                                ts = next_topk[i][n]
+                                tc = candidate[:]
+
+                                if tc[-1] == 1:
+                                    tc.append(1)
+                                    ts = score
+                                else:
+                                    tc.append(n)
+                                    ts = score + ts
+
+                                # tc.append(searcher.title_input[searcher.gen_len])
+
+                                tmp_buffer.append((tc,ts))
+
+                    tmp_buffer = sorted(tmp_buffer,key=lambda x:x[1])
+                    tmp_buffer = tmp_buffer[-searcher.topk:]
+                    searcher.buffer = tmp_buffer
+                    searcher.gen_len += 1
+                #
+                # if searcher.gen_len>0:
+                #     print('第{0}步生成的内容：'.format(searcher.gen_len))
+
+                if len(searcher.buffer) > 0:
+                    c = np.sum([1 if len(l[0])>0 and l[0][-1] == 1 else 0 for l in searcher.buffer])
+                else:
+                    c = 0
+                if c == searcher.topk:
+                    # 用于判定是否是第一次的生成，因为后续的生成都是 c * c 的数量
+                    searcher.gen_len = max_step
+                else:
+                    searcher.state.put([state_c,state_m])
+
+        pred = estimator.predict(self.get_input_fn(),['target','state_c','state_m'],yield_single_examples=False)
+
+        def get_next(searcher):
+
+            while len(searcher.gen_result) < searcher.max_count:
+                try:
+                    res_v = []
+                    res = next(pred)
+                    res,state_c,state_m = searcher.get_pred_map(res)
+                    for i,v in enumerate(res):
+                        vmap = v
+                        if rp_core is not  None:
+                            rp_core.do()
+                        sort_res = np.argsort(vmap)[-searcher.topk:]
+                        map_res = {}
+                        for k in sort_res:
+                            map_res[k] = vmap[k]
+                        res_v.append(map_res)
+
+
+                    searcher.next_topk.put((res_v,state_c,state_m))
+                except StopIteration:
+                    return
+
+        producer = threading.Thread(target=fill_data,args=(self,))
+        consumer = threading.Thread(target=get_next,args=(self,))
+        producer.start()
+        consumer.start()
+
+        producer.join()
+        consumer.join()
 
 
 
@@ -268,5 +369,5 @@ if __name__ == '__main__':
         bs.report('s2s_lstm')
 
 
-    # train()
+    train()
     beamsearch(1)

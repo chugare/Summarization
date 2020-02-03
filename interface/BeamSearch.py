@@ -9,6 +9,8 @@ class Predictor:
     def predict(self,source,context,conlen,topk = None):
         pass
 
+
+
 class Beamsearcher:
 
     def __init__(self,dataset,tokenizer,topk,predictor,max_count):
@@ -23,6 +25,8 @@ class Beamsearcher:
 
         self.max_count = max_count
         self.context = queue.Queue(1)
+        self.rpcore = None
+        self.ctcore = None
     def report(self,fname):
         pass
 
