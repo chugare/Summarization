@@ -8,7 +8,7 @@ from data_util.tokenization import tokenization
 from util.file_utils import queue_reader
 from model.transformer import Transformer,create_look_ahead_mask,create_padding_mask
 import time
-
+from interface.ContextTune import CTcore
 
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 MODEL_PATH = './transformer'
@@ -143,6 +143,7 @@ def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
 
         prediction, atte_weight = transformer(source,tar_inp,training, enc_padding_mask,
               combined_mask, dec_padding_mask)
+
         loss = loss_function(tar_real,prediction)
         learning_rate = CustomSchedule(d_model)(global_step)
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
@@ -194,7 +195,7 @@ def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
                         c_map.setdefault(w,0)
                         c_map[w] += 1
                     return c_map
-                if self.count % 1  == 0:
+                if self.count % 10  == 0:
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
@@ -208,6 +209,9 @@ def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
         #     summary_writer=None,
         #     summary_op=tf.summary.
         # )
+        prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
+        prediction = tf.nn.softmax(prediction,-1)
+
         return tf.estimator.EstimatorSpec(mode,{'target':prediction},loss,train_op,training_hooks=[TransformerRunHook()])
 
     return model_fn
@@ -219,7 +223,6 @@ class TFMBeam(NewsBeamsearcher):
         for seq in self.buffer:
             context.append(self.tokenizer.padding(seq[0][:],max_step))
 
-            print(self.tokenizer.get_sentence(seq[0][:]))
         return context
     def get_pred_map(self,pred):
         return pred['target'][:,self.gen_len-1,:]
@@ -228,7 +231,6 @@ class TFMBeam(NewsBeamsearcher):
             searcher = self
             while len(searcher.gen_result) < searcher.max_count:
                 context =  searcher.context.get()
-                # buffer_lock.wait(2)
                 for c in context:
                     yield {'source':searcher.source_input,'context':c}, tf.constant(0)
 
@@ -237,7 +239,6 @@ class TFMBeam(NewsBeamsearcher):
         return input_fn
 
 
-if __name__ == '__main__':
 
 
     # def generator():
@@ -268,72 +269,47 @@ if __name__ == '__main__':
     # g = generator()
     # for s,t in g:
     #     print(s)
-    def train():
-        model_fn = build_model_fn(lr =0.01,num_layers=NUM_LAYERS,d_model=D_MODEL,num_head=NUM_HEAD,dff=DFF,input_vocab_size=VOCAB_SIZE,
-                                  target_vocab_size=VOCAB_SIZE,
-                                  pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
-        estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-        input_fn = build_input_fn("NEWS",DATA_PATH)
+def train():
+    model_fn = build_model_fn(lr =0.01,num_layers=NUM_LAYERS,d_model=D_MODEL,num_head=NUM_HEAD,dff=DFF,input_vocab_size=VOCAB_SIZE,
+                              target_vocab_size=VOCAB_SIZE,
+                              pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
+    estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
+    input_fn = build_input_fn("NEWSOFF",DATA_PATH)
 
-        estimator.train(input_fn,max_steps=10000000)
+    estimator.train(input_fn,max_steps=10000000)
 
 
-    def eval():
-        model_fn = build_model_fn(lr =0.01,num_layers=NUM_LAYERS,d_model=D_MODEL,num_head=NUM_HEAD,dff=DFF,input_vocab_size=VOCAB_SIZE,
-                                  target_vocab_size=VOCAB_SIZE,
-                                  pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
-        estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
-        input_fn = build_input_fn("E_NEWS", DATA_PATH,batch_size=3200)
-        class EvalRunHook(tf.estimator.SessionRunHook):
-            def __init__(self):
-                self.count = 0
-                self.start_time  = time.time()
-                self.ctime = time.time()
 
-            def after_run(self, run_context, run_values):
+def beamsearch(topk,cnt,name):
+    tokenizer = tokenization(DICT_PATH,DictSize=100000)
+    source_file = queue_reader("E_NEWS", DATA_PATH)
+    def _g():
+        for source in source_file:
 
-                self.count += 1
-                # a = np.mean(run_values.results['accuracy'])
-                if self.count % 1   == 0:
-                    ntime = time.time()
-                    dtime = ntime - self.ctime
-                    self.ctime = ntime
-                    print("Batch {0} : time_cost - {1:.2f} : all_time_cost - {2:.2f}".format(self.count, dtime, ntime- self.start_time))
-                pass
-        # estimator.train(input_fn,max_steps=1000000)
-        # estimator.evaluate(input_fn, 1000,hooks=[EvalRunHook()])
-        res = estimator.predict(input_fn,predict_keys=['target'])
-        for i in res:
+            value = source.split('#')
+            source = value[2].split(' ')
+            print(''.join(source))
+            title = value[0].split(' ')
+            source = tokenizer.padding(tokenizer.tokenize(source),1000)
+            title = tokenizer.padding(tokenizer.tokenize(title),100)
+            yield  source,title
+    g = _g()
 
-            print(i)
-    #
-    #
-    def beamsearch(topk = 10):
-        tokenizer = tokenization(DICT_PATH,DictSize=100000)
-        source_file = queue_reader("NEWS", DATA_PATH)
-        def _g():
-            for source in source_file:
+    model_fn = build_model_fn(lr =0.01,num_layers=NUM_LAYERS,d_model=D_MODEL,num_head=NUM_HEAD,dff=DFF,input_vocab_size=VOCAB_SIZE,
+                              target_vocab_size=VOCAB_SIZE,
+                              pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
+    estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH )
 
-                value = source.split('#')
-                source = value[2].split(' ')
-                title = value[0].split(' ')
-                source = tokenizer.padding(tokenizer.tokenize(source),1000)
-                title = tokenizer.padding(tokenizer.tokenize(title),100)
-                yield  source,title
-        g = _g()
+    predictor = NewsPredictor(estimator,topk)
 
-        model_fn = build_model_fn(lr =0.01,num_layers=NUM_LAYERS,d_model=D_MODEL,num_head=NUM_HEAD,dff=DFF,input_vocab_size=VOCAB_SIZE,
-                                  target_vocab_size=VOCAB_SIZE,
-                                  pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
-        estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH )
+    bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=topk,predictor=predictor,max_count=cnt)
+    bs.set_ctcore(CTcore(VOCAB_SIZE,1.2))
+    bs.do_search_mt(100,estimator=estimator)
+    bs.report(name)
 
-        predictor = NewsPredictor(estimator,topk)
-
-        bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=topk,predictor=predictor,max_count=100)
-
-        bs.do_search_mt(100,estimator=estimator)
+if __name__ == '__main__':
 
     train()
-    # beamsearch()
+    # beamsearch(5,100,'tfm')
 
 

@@ -2,6 +2,7 @@ from data_util.data_source import DatasetBuilder
 from data_util.news_2016.db_util import MysqlWriter
 import json
 import re
+from baseline.TextRank import textRank_s
 
 class NewsDatasetMysqlWriter(DatasetBuilder):
     def read(self):
@@ -34,5 +35,3 @@ class NewsDatasetMysqlWriter(DatasetBuilder):
 
             MR.write((obj.get('title',''),obj.get('source',''),obj.get('content','')))
         MR.close()
-
-

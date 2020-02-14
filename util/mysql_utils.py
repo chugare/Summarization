@@ -1,16 +1,16 @@
 import pymysql
 
 
-def connect_db():
+def connect_db(name):
     return pymysql.connect(host='172.19.241.222',
                            port=3306,
                            user='root',
                            password='1234',
-                           database='news2016',
+                           database=name,
                            charset='utf8')
 
 def get_by_source(source):
-    con = connect_db()
+    con = connect_db('news2016')
     cur = con.cursor()
 
 
@@ -21,7 +21,7 @@ def get_by_source(source):
         con.commit()
         return res
     except:
-        print("[W] some data insert failed, but process continue")
+        print("[W] some data fetch failed, but process continue")
     finally:
         cur.close()
         con.close()

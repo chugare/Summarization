@@ -8,11 +8,14 @@ from util.file_utils import queue_reader
 from model.ABS import ABS,create_padding_mask
 import time,threading,queue
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
-
+from interface.ContextTune import CTcore
 
 MODEL_PATH = './ABS'
 DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
 DATA_PATH = '/home/user/zsm/Summarization/news_data'
+
+VOCAB_SIZE = 100000
+
 
 def build_input_fn(name,data_set,batch_size = 1,context_len = 10,input_seq_len = 1000,output_seq_len = 100):
 
@@ -229,36 +232,39 @@ class ABSBeamSearcher(NewsBeamsearcher):
 
 
 
+
+def train():
+    model_fn = build_model_fn(seq_len=100)
+    estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
+    input_fn = build_input_fn("NEWS", DATA_PATH,batch_size=32,context_len=10,input_seq_len=1000,output_seq_len=100)
+
+    estimator.train(input_fn,max_steps=10000000)
+
+def beamsearch(topk,cnt,name):
+    tokenizer = tokenization(DICT_PATH,DictSize=100000)
+    source_file = queue_reader("E_NEWS", DATA_PATH )
+
+    def _g():
+        for source in source_file:
+            value = source.split('#')
+            source  = value[2].split(' ')
+            title = value[0].split(' ')
+            print(''.join(source))
+            source = tokenizer.padding(tokenizer.tokenize(source),1000)
+            title = tokenizer.padding(tokenizer.tokenize(title),100)
+            yield  source,title
+    g = _g()
+
+    model_fn = build_model_fn(seq_len=1)
+    estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
+    predictor = NewsPredictor(estimator,topk)
+
+    bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=cnt)
+    bs.set_ctcore(CTcore(VOCAB_SIZE,1.2))
+
+    bs.do_search_mt(100,estimator)
+    bs.report(name)
+
 if __name__ == '__main__':
-
-    def train():
-        model_fn = build_model_fn(seq_len=100)
-        estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-        input_fn = build_input_fn("NEWS", DATA_PATH,batch_size=32,context_len=10,input_seq_len=1000,output_seq_len=100)
-
-        estimator.train(input_fn,max_steps=10000000)
-
-    def beamsearch(topk,case_num):
-        tokenizer = tokenization(DICT_PATH,DictSize=100000)
-        source_file = queue_reader("NEWS", DATA_PATH )
-
-        def _g():
-            for source in source_file:
-                value = source.split('#')
-                source  = value[2].split(' ')
-                title = value[0].split(' ')
-                source = tokenizer.padding(tokenizer.tokenize(source),1000)
-                title = tokenizer.padding(tokenizer.tokenize(title),100)
-                yield  source,title
-        g = _g()
-
-        model_fn = build_model_fn(seq_len=1)
-        estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
-        predictor = NewsPredictor(estimator,topk)
-        bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=case_num)
-        bs.do_search_mt(100,estimator)
-        bs.report('ABS')
-
-
     train()
-    # beamsearch(1,50)
+    # beamsearch(5,100,'abs')

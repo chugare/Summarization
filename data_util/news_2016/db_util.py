@@ -8,7 +8,7 @@ class MysqlWriter():
         self.buffer_size = buffer_size
         self.count = 0
 
-        self.con = connect_db()
+        self.con = connect_db('news2016')
     def write(self, value):
         if len(self.buffer) >= self.buffer_size:
             self.dt_write(self.buffer)
@@ -26,9 +26,9 @@ class MysqlWriter():
         title, source, content = zip(*values)
 
         length = [len(i) for i in content]
-        val = zip(title , source, tuple(length),content)
+        val = zip(title,source, tuple(length),content)
         try:
-            cur.executemany("INSERT INTO news_obj (title, source, length, content) VALUES (%s, %s, %s ,%s)", val )
+            cur.executemany("INSERT INTO news_obj (title, book, length, content) VALUES (%s, %s, %s ,%s)", val )
             res = self.con.commit()
         except:
             print("[W] some data insert failed, but process continue")

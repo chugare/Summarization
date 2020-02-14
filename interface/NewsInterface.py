@@ -1,6 +1,7 @@
 import numpy as np
 from interface.BeamSearch import *
 from  interface.RepeatPunish import  doRP_simple
+from interface.ContextTune import CTcore
 import tensorflow as tf
 import json
 import os,time,sys
@@ -46,6 +47,9 @@ class NewsBeamsearcher(Beamsearcher):
         pass
     def set_rpcore(self,rp_core):
         self.rpcore = rp_core
+
+    def set_ctcore(self,ct_core):
+        self.ctcore = ct_core
     def report(self,fname):
 
         data = []
@@ -77,7 +81,7 @@ class NewsBeamsearcher(Beamsearcher):
         def fill_data(searcher):
             while len(searcher.gen_result) < searcher.max_count:
 
-                if len(searcher.buffer) == 0 or searcher.gen_len == max_step:
+                if len(searcher.buffer) == 0 or searcher.gen_len >= max_step:
                     if searcher.gen_len == max_step:
                         searcher.gen_result.append((searcher.buffer[-1][0],searcher.title_input,searcher.source_input))
 
@@ -94,6 +98,7 @@ class NewsBeamsearcher(Beamsearcher):
                     searcher.gen_len = 0
                     searcher.next_topk.empty()
                     searcher.context.empty()
+                    searcher.ctcore.init(source)
                 else:
 
                     tmp_buffer = []
@@ -114,16 +119,28 @@ class NewsBeamsearcher(Beamsearcher):
                     else:
                         for i, val in enumerate(buffer):
                             candidate,score = val
+
+                            opt_w = 0
+
                             for n in next_topk[i]:
+                                if n==1:
+                                    continue
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
+                                # score -= opt_w
+                                # opt_w += 0.2
+                                # # 无自动截断版本
+                                #
+                                # tc.append(n)
+                                # ts = score + ts
 
+                                # 自动截断
                                 if tc[-1] == 1:
                                     tc.append(1)
                                     ts = score
                                 else:
                                     tc.append(n)
-                                    ts = score + ts
+                                    ts = score * ts
 
                                 # tc.append(searcher.title_input[searcher.gen_len])
 
@@ -137,12 +154,16 @@ class NewsBeamsearcher(Beamsearcher):
                 # if searcher.gen_len>0:
                 #     print('第{0}步生成的内容：'.format(searcher.gen_len))
 
+
+                 # 统计buffer中完成输出的数量，
                 if len(searcher.buffer) > 0:
                     c = np.sum([1 if len(l[0])>0 and l[0][-1] == 1 else 0 for l in searcher.buffer])
                 else:
                     c = 0
-                if c == searcher.topk:
-                    searcher.gen_len = max_step
+                # c = len(searcher.buffer)
+                # 数量达到topk之后，意味着beamsearch中所有的输出都已经达到终点
+                if c >= searcher.topk or searcher.gen_len>=max_step:
+                     searcher.gen_len = max_step
                 else:
                     context = searcher.get_context(max_step)
                     searcher.context.put(context)
@@ -158,9 +179,18 @@ class NewsBeamsearcher(Beamsearcher):
                     res = searcher.get_pred_map(res)
                     for i,v in enumerate(res):
                         vmap = v
-                        if rp_core is not  None:
-                            rp_core.do()
-                        sort_res = np.argsort(vmap)[-searcher.topk:]
+
+
+                        # 需要重复惩罚或者上下文调优的时候
+                        #
+                        # 重复惩罚
+                        vmap_w = vmap
+                        vmap_w = doRP_simple(100000,1,searcher.buffer[i][0],vmap)
+                        #
+                        # 上下文调优
+                        vmap_w = searcher.ctcore.do(vmap_w,searcher.buffer[i][0])
+
+                        sort_res = np.argsort(vmap_w)[-searcher.topk:]
                         map_res = {}
                         for k in sort_res:
                             map_res[k] = vmap[k]

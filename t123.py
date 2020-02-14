@@ -1,19 +1,42 @@
-import tensorflow as tf
+
+# #
+# inp = tf.constant(value=1,shape=[10,1,100],dtype=tf.float32)
+# cell = []
+# for i in range(5):
+#     cell.append(tf.keras.layers.LSTMCell(200))
+# # initstate  cell.get_initial_state(batch_size=1,dtype=tf.float32)
+# initstate = tf.zeros([10*5*2,200],tf.float32)
+# initstate = tf.split(initstate,5)
+# ist = []
+# for i in initstate:
+#     ist.append(tf.split(i,2))
+#
+# layer = tf.keras.layers.RNN(cell)
+# initstate = layer.get_initial_state(inp)
+# # print(ist)
+# print(initstate)
+# r = layer(inp,initial_state=ist)
+# print(r)
+
 import numpy as np
 
+a = np.ones([100])*2
+b = np.ones([100])*2
+print(a*b)
+
 #
-inp = tf.constant(value=1,shape=[1,100],dtype=tf.float32)
-cell = tf.keras.layers.LSTMCell(200)
-initstate = cell.get_initial_state(batch_size=1,dtype=tf.float32)
-# initstate = [tf.zeros([1,200],tf.float32)]
-layer = tf.keras.layers.RNN([cell])
-print(initstate)
-
-r = layer(inp,initial_state=initstate)
-print(r)
-
-
-
+# a = tf.range(100)
+#
+# aa = tf.reshape(a,[10,10])
+#
+# print(aa)
+#
+# alist = tf.split(aa,5)
+#
+# print(alist)
+#
+# ar = tf.concat(alist,0)
+# print(ar)
 # b = tf.constant(np.arange(1, 25, dtype=np.int32),
 #                 shape=[6, 4])
 # bb = tf.tile(b,[1,3])

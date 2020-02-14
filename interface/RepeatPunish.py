@@ -28,19 +28,19 @@ class RPcore:
 
 
 def doRP_simple(dsize,ratio,sentence,new_predict):
-    pmap = np.zeros([dsize],np.float32)
+    pmap = np.ones([dsize],np.float32)
     for w in sentence:
-        pmap[w] += ratio
-    new_predict += pmap
+        pmap[w] *= ratio
+    new_predict *= pmap
     return new_predict
 
 def doRP_window(dsize,ratio,windowsize,sentence,new_predict):
-    pmap = np.zeros([dsize],np.float32)
+    pmap = np.ones([dsize],np.float32)
     if len(sentence)> windowsize:
         sentence = sentence[-windowsize:]
     for w in sentence:
-        pmap[w] += ratio
-    new_predict += pmap
+        pmap[w] *= ratio
+    new_predict *= pmap
     return new_predict
 
 def doRP_exp(dsize,ratio,drop_rate,sentence,new_predict):

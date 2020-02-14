@@ -41,12 +41,12 @@ def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_
                 title_sequence = tokenizer.tokenize(title)
                 title_sequence = tokenizer.padding(title_sequence,output_seq_len)
                 title_sequence.insert(0,2)
-
                 # title_context.append([0]*context_le)
-
+                source_len = len(content)
                 feature = {
                     'source':source_sequence,
                     'last_word': 0,
+                    'source_len':source_len,
                     'title':title_sequence,
                 }
                 #     yield feature,label
@@ -54,7 +54,7 @@ def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_
             except Exception:
                 continue
     def input_fn():
-        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'last_word':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[input_seq_len],'last_word':[],'title':[output_seq_len+1]},[]))
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'source_len':tf.int64,'last_word':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[input_seq_len],'source_len':[],'last_word':[],'title':[output_seq_len+1]},[]))
         ds = ds.shuffle(8192).batch(batch_size).cache().repeat()
         return ds
     return input_fn
@@ -94,6 +94,7 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
         global_step = tf.compat.v1.train.get_or_create_global_step()
         source = features['source']
         last_word = features['last_word']
+        source_len = features['source_len']
         class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
             def __init__(self, d_model, warmup_steps=4000):
                 super(CustomSchedule, self).__init__()
@@ -122,7 +123,7 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             title_input = title[:,:-1]
             mask = create_padding_mask(title_real)
 
-            prediction, decoder_input = RNNS2S_model(source,None,title_real,mode,None,mask = mask)
+            prediction, decoder_states,enc_vec = RNNS2S_model(source,source_len,title_input,mode,None,mask = mask)
             prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
 
             loss = loss_function(title_real,prediction)
@@ -136,19 +137,25 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             grad, var = zip(*grads)
             tf.clip_by_global_norm(grad, 0.5)
             grads = zip(grad, var)
-            decoder_states_m = tf.constant(0)
-            decoder_states_c = tf.constant(0)
             train_op = optimizer.apply_gradients(grads, global_step=global_step)
 
             tf.summary.scalar('accuracy',train_accuracy)
         else:
 
             mask = tf.zeros(shape=tf.shape(last_word))
-            state_m = features['state_m']
-            state_c = features['state_c']
+            states = features['state']
+            states = tf.transpose(states,[1,0,2])
+            states = tf.split(states,DECODER_NUM)
+            last_word = tf.expand_dims(last_word,-1)
+            dec_init_state = []
 
-            prediction,decoder_states = RNNS2S_model(source,last_word,None,mode,[state_m,state_c],mask = mask)
-            decoder_states_m,decoder_states_c = decoder_states
+            for state in states:
+
+                dec_init_state.append([tf.squeeze(i,0) for i in tf.split(state,2)])
+
+
+            prediction,decoder_states,enc_vec = RNNS2S_model(source,source_len,last_word,mode,dec_init_state,mask = mask)
+
             prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
 
             loss = tf.constant(0)
@@ -163,7 +170,8 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             def before_run(self, run_context):
                 return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,
                                                     'learning_rate':learning_rate,'PRED':prediction,'title':title_real,
-                                                    'decoder_state':decoder_states_c})
+                                                    'enc_vec':enc_vec
+                                                    })
 
             def after_run(self, run_context, run_values):
 
@@ -182,16 +190,16 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
                     ntime = time.time()
                     dtime = ntime - self.ctime
                     self.ctime = ntime
-                    print("Batch {0} : loss - {1:.3f} :lr - {5:.2e} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(
-                        run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time,run_values.results['learning_rate']))
-                    pred = np.argmax(run_values.results['PRED'],-1)
-                    pred_o = statis(pred)
+                    print("Batch {0} : loss - {1:.3f} :lr - {5:.2e} : accuracy - {2:.3f} : TCPB - {3:.2f} : TTC - {4:.2f} h".format(
+                        run_values.results['global_step'],run_values.results['loss'],a,dtime,(ntime-self.start_time)/3600,run_values.results['learning_rate']))
                     # print(run_values.results['PRED'])
 
                 pass
 
 
-        return tf.estimator.EstimatorSpec(mode,{'target':prediction,'state_c':decoder_states_c,'state_m':decoder_states_m},loss,train_op,training_hooks=[TransformerRunHook()])
+        return tf.estimator.EstimatorSpec(mode,{'target':prediction,'state':decoder_states,
+                                                'enc_vec':enc_vec
+                                                },loss,train_op,training_hooks=[TransformerRunHook()])
 
     return model_fn
 
@@ -204,20 +212,23 @@ class S2SBeamSearcher(NewsBeamsearcher):
 
 
     def get_pred_map(self,pred):
-        return pred['target'][:,0,:],pred['state_c'],pred['state_m']
+        return pred['target'][:,0,:],pred['state']
 
 
     def get_input_fn(self):
         def data_generator():
             searcher = self
             while len(searcher.gen_result) < searcher.max_count:
-                state_c,state_m = searcher.state.get()
+                state = searcher.state.get()
+                # state_t = np.transpose(state,[1,0,2])
                 # buffer_lock.wait(2)
-                yield {'source':searcher.source_input,'state_c':state_c,'state_m':state_m,'last_word':10}, tf.constant(0)
+                for i in range(searcher.topk):
+                    lastword = searcher.buffer[i][0][-1] if searcher.buffer[i][0] else 2
+                    yield {'source':searcher.source_input,'source_len':searcher.source_len,'state':state[i],'last_word':lastword}, tf.constant(0)
 
         def input_fn():
-            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'last_word':tf.int64,'state_c':tf.float32,'state_m':tf.float32},tf.int64),
-                                                  output_shapes=({'source':[1000],'last_word':[],'state_c':[DECODER_NUM,DECODER_SIZE],'state_m':[DECODER_NUM,DECODER_SIZE]},[])).batch(self.topk)
+            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'source_len':tf.int64,'last_word':tf.int64,'state':tf.float32},tf.int64),
+                                                  output_shapes=({'source':[1000],'source_len':[],'last_word':[],'state':[DECODER_NUM*2,DECODER_SIZE]},[])).batch(self.topk,drop_remainder=True)
         return input_fn
     def do_search_mt(self,max_step,estimator,rp_core = None):
         # buffer_lock = threading.RLock()
@@ -235,9 +246,11 @@ class S2SBeamSearcher(NewsBeamsearcher):
                         searcher.gen_result.append((searcher.buffer[-1][0],searcher.title_input,searcher.source_input))
 
                         print('第{0}步生成的内容：'.format(len(searcher.gen_result)))
+                        # print('源：{}'.format(searcher.tokenizer.get_sentence(searcher.source_input)))
                         print(searcher.tokenizer.get_sentence(searcher.buffer[-1][0]))
-                    source, title = next(searcher.dataset)
+                    source,source_len,title = next(searcher.dataset)
                     searcher.source_input = source[:]
+                    searcher.source_len = source_len
                     searcher.title_input = title[:]
 
 
@@ -247,13 +260,12 @@ class S2SBeamSearcher(NewsBeamsearcher):
                     searcher.gen_len = 0
                     searcher.next_topk.empty()
                     searcher.state.empty()
-                    state_c = np.zeros([DECODER_NUM,DECODER_SIZE],np.float32)
-                    state_m = np.zeros([DECODER_NUM,DECODER_SIZE],np.float32)
+                    state = tf.zeros([searcher.topk,DECODER_NUM*2,DECODER_SIZE],np.float32)
                 else:
 
                     tmp_buffer = []
                     buffer = searcher.buffer
-                    next_topk , state_c , state_m = searcher.next_topk.get()
+                    next_topk , state = searcher.next_topk.get()
                     if searcher.gen_len == 0:
                         candidate,score = buffer[0]
 
@@ -272,7 +284,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                             for n in next_topk[i]:
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
-
+                                # #
                                 if tc[-1] == 1:
                                     tc.append(1)
                                     ts = score
@@ -280,6 +292,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                                     tc.append(n)
                                     ts = score + ts
 
+                                # print(searcher.tokenizer.get(n))
                                 # tc.append(searcher.title_input[searcher.gen_len])
 
                                 tmp_buffer.append((tc,ts))
@@ -300,9 +313,12 @@ class S2SBeamSearcher(NewsBeamsearcher):
                     # 用于判定是否是第一次的生成，因为后续的生成都是 c * c 的数量
                     searcher.gen_len = max_step
                 else:
-                    searcher.state.put([state_c,state_m])
+                    searcher.state.put(state)
 
-        pred = estimator.predict(self.get_input_fn(),['target','state_c','state_m'],yield_single_examples=False)
+
+        pred = estimator.predict(self.get_input_fn(),['target','state',
+                                                      'enc_vec'
+                                                      ],yield_single_examples=False)
 
         def get_next(searcher):
 
@@ -310,7 +326,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                 try:
                     res_v = []
                     res = next(pred)
-                    res,state_c,state_m = searcher.get_pred_map(res)
+                    res,state = searcher.get_pred_map(res)
                     for i,v in enumerate(res):
                         vmap = v
                         if rp_core is not  None:
@@ -322,7 +338,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                         res_v.append(map_res)
 
 
-                    searcher.next_topk.put((res_v,state_c,state_m))
+                    searcher.next_topk.put((res_v,state))
                 except StopIteration:
                     return
 
@@ -336,38 +352,40 @@ class S2SBeamSearcher(NewsBeamsearcher):
 
 
 
+
+def train():
+    model_fn = build_model_fn(lr = 0.01,d_model=D_MODEL,input_vocab_size=VOCAB_SIZE,encoder_size=ENCODE_SIZE,encoder_layer_num=ENCODER_NUM,
+                              decoder_size=DECODER_SIZE,decoder_layer_num = DECODER_NUM)
+    estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
+    input_fn = build_input_fn("NEWS", DATA_PATH,batch_size=16,input_seq_len=1000,output_seq_len=100)
+
+    estimator.train(input_fn,max_steps=10000000)
+
+def beamsearch(topk,cnt,name):
+    tokenizer = tokenization(DICT_PATH,DictSize=100000)
+    source_file = queue_reader("E_NEWS", DATA_PATH )
+
+    def _g():
+        for source in source_file:
+            value = source.split('#')
+            source  = value[2].split(' ')
+            source_len = len(source)
+
+            title = value[0].split(' ')
+            source = tokenizer.padding(tokenizer.tokenize(source),1000)
+            title = tokenizer.padding(tokenizer.tokenize(title),100)
+            yield  source,source_len,title
+    g = _g()
+
+    model_fn = build_model_fn(lr = 0.1,d_model=D_MODEL,input_vocab_size=VOCAB_SIZE,encoder_size=ENCODE_SIZE,encoder_layer_num=ENCODER_NUM,
+                              decoder_size=DECODER_SIZE,decoder_layer_num = DECODER_NUM)
+    estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
+    predictor = NewsPredictor(estimator,topk)
+    bs = S2SBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=cnt)
+    bs.do_search_mt(100,estimator)
+    bs.report(name)
+
 if __name__ == '__main__':
 
-    def train():
-        model_fn = build_model_fn(lr = 0.01,d_model=D_MODEL,input_vocab_size=VOCAB_SIZE,encoder_size=ENCODE_SIZE,encoder_layer_num=ENCODER_NUM,
-                                  decoder_size=DECODER_SIZE,decoder_layer_num = DECODER_NUM)
-        estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-        input_fn = build_input_fn("NEWS", DATA_PATH,batch_size=32,input_seq_len=1000,output_seq_len=100)
-
-        estimator.train(input_fn,max_steps=10000000)
-
-    def beamsearch(topk = 1):
-        tokenizer = tokenization(DICT_PATH,DictSize=100000)
-        source_file = queue_reader("NEWS", DATA_PATH )
-
-        def _g():
-            for source in source_file:
-                value = source.split('#')
-                source  = value[2].split(' ')
-                title = value[0].split(' ')
-                source = tokenizer.padding(tokenizer.tokenize(source),1000)
-                title = tokenizer.padding(tokenizer.tokenize(title),100)
-                yield  source,title
-        g = _g()
-
-        model_fn = build_model_fn(lr = 0.1,d_model=D_MODEL,input_vocab_size=VOCAB_SIZE,encoder_size=ENCODE_SIZE,encoder_layer_num=ENCODER_NUM,
-                                  decoder_size=DECODER_SIZE,decoder_layer_num = DECODER_NUM)
-        estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
-        predictor = NewsPredictor(estimator,topk)
-        bs = S2SBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=100)
-        bs.do_search_mt(100,estimator)
-        bs.report('s2s_lstm')
-
-
-    train()
-    beamsearch(1)
+    # train()
+    beamsearch(1,100,'s2s')

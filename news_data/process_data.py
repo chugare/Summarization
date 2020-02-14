@@ -40,10 +40,13 @@ def  mk_txt():
 
 
 
+
 if __name__ == '__main__':
     # l = NewsDatasetBuilder(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
-    # l.build_dataset()
     # l = NewsDatasetMysqlWriter(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
+    # l.write_mysql()
+    # l.build_dataset()
     source = ['中国新闻网','新华网','光明网','京华时报']
+    # source = ['主流媒体-媒体平台']
     nd = NewsDatasetFromMysql(source)
     nd.build()

@@ -3,6 +3,7 @@ from data_util.BatchWriter import BatchWriter,SegFileBatchWriter
 import json,jieba
 from util.mysql_utils import get_by_source
 import random
+from baseline.TextRank import textRank_s
 
 
 class NewsDatasetBuilder(DatasetBuilder):
@@ -73,17 +74,19 @@ class NewsDatasetFromMysql:
         assert isinstance(sources,list)
         self.sources = sources
     def build(self):
-        BR = BatchWriter(open("NEWS.txt",'w',encoding='utf-8'))
-        BRE = BatchWriter(open("E_NEWS.txt",'w',encoding='utf-8'))
-        E_size = 200
+        BR = BatchWriter(open("NEWS_TRK.txt",'w',encoding='utf-8'))
+        BRE = BatchWriter(open("E_NEWS_TRK.txt",'w',encoding='utf-8'))
+        E_size = 1000
         E_c = 0
+        i = 0
         for source in self.sources:
             res = get_by_source(source)
             for line in res:
                 ID,title,source,length,content = line
-                title = jieba.lcut(title)
+                # title = jieba.lcut(title)
                 content = jieba.lcut(content)
-
+                txtrk = textRank_s(' '.join(content))
+                title = txtrk
                 if E_c < E_size:
                     rs = random.randint(0,100)
                     if rs <= 3:
@@ -93,6 +96,9 @@ class NewsDatasetFromMysql:
                         BR.write(' '.join(title)+'#'+source+'#'+' '.join(content))
                 else:
                     BR.write(' '.join(title)+'#'+source+'#'+' '.join(content))
+                i += 1
+                if i%100 == 0:
+                    print("Read from mysql %d finished"%i)
         BR.close()
         BRE.close()
 

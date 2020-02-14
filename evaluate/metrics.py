@@ -71,7 +71,7 @@ def IdfAverage(gen):
     tfidf = Tool.Tf_idf()
     words = jieba.lcut(gen)
     idfsum = 0
-    c = 0
+    c = 1
     for w in words:
         if w in tfidf.idf:
             idfsum += tfidf.idf[w]
@@ -115,20 +115,33 @@ def generate_ALL(fname):
         BLEUSum += score
 
     rougeAvg = {}
+    result = []
     for t in rougeSum:
         rougeAvg[t] = {}
         for r in rougeSum[t]:
             rougeAvg[t][r] = float(rougeSum[t][r]) / count
-        print("%f" % (rougeAvg[t]['r']))
+        result.append(rougeAvg[t]['r'])
+        # print("%f" % (rougeAvg[t]['r']))
     BLEUAvg = BLEUSum/ count
     wordIdfAvg = wordIdfSum/count
     wordNumAvg = wordNumSum/count
-
-    print('%f'%BLEUAvg)
-    print('%f'%wordNumAvg)
-    print('%f'%wordIdfAvg)
+    result.extend([BLEUAvg,wordNumAvg,wordIdfAvg])
+    res = [str(s) for s in result]
+    print('\t'.join(res))
+    # print('%f'%BLEUAvg)
+    # print('%f'%wordNumAvg)
+    # print('%f'%wordIdfAvg)
     # print('BLEU %f'%BLEUAvg)
     # print('WordNUM %f'%wordNumAvg)
     # print('WordIDF %f'%wordIdfAvg)
 
-generate_ALL('../Estimator_edition/ABS_0.json')
+
+if __name__ == '__main__':
+
+    # generate_ALL('../baseline/lead.json')
+    # generate_ALL('../baseline/covage.json')
+    # generate_ALL('../baseline/tfidf.json')
+    # generate_ALL('../baseline/textrank.json')
+    # generate_ALL('../Estimator_edition/tfm.json')
+    # generate_ALL('../Estimator_edition/s2s.json')
+    generate_ALL('../Estimator_edition/abs.json')
