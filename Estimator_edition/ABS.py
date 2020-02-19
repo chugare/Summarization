@@ -9,19 +9,22 @@ from model.ABS import ABS,create_padding_mask
 import time,threading,queue
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 from interface.ContextTune import CTcore
-
+from baseline.Tf_idf import Tf_idf
 MODEL_PATH = './ABS'
 DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
 DATA_PATH = '/home/user/zsm/Summarization/news_data'
 
 VOCAB_SIZE = 100000
 
+R_TF = 1
+R_IDF = 0.5
 
 def build_input_fn(name,data_set,batch_size = 1,context_len = 10,input_seq_len = 1000,output_seq_len = 100):
 
     def generator():
         tokenizer = tokenization(DICT_PATH,DictSize=100000)
         source_file = queue_reader(name,data_set)
+        idf_core = Tf_idf(DICT_PATH,DATA_PATH+'/NEWS.txt')
         for line in source_file:
             try:
                 example = line.split('#')
@@ -43,17 +46,27 @@ def build_input_fn(name,data_set,batch_size = 1,context_len = 10,input_seq_len =
                         context = [0]*(context_len-i)
                         context.extend(title_sequence[:i])
                     title_context.append(context)
+
+
+                re_weight_map = idf_core.reweight_calc(content,R_IDF,R_TF)
+                re_w = [re_weight_map[ti] for ti in title_sequence]
+
+
+
                 feature = {
                     'source':source_sequence,
                     'context':title_context,
-                    'title':title_sequence
+                    'title':title_sequence,
+                    'reweight':re_w
+
                 }
                 #     yield feature,label
                 yield feature,0
             except Exception:
                 continue
     def input_fn():
-        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'context':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[input_seq_len],'context':[output_seq_len,context_len],'title':[output_seq_len]},[]))
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'context':tf.int64,'title':tf.int64,'reweight':tf.float32},tf.int64),
+                                            output_shapes=({'source':[input_seq_len],'context':[output_seq_len,context_len],'title':[output_seq_len],'reweight':[output_seq_len]},[]))
         ds = ds.shuffle(8192).batch(batch_size).cache().repeat()
         return ds
     return input_fn
@@ -68,12 +81,15 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
     #
     # loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
     #     from_logits=True, reduction='none')
-    def loss_function(real, pred):
+    def loss_function(real, pred,reweight):
         mask = tf.math.logical_not(tf.math.equal(real, 0))
         # loss_ = loss_object(real, pred)
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(real, pred)
         mask = tf.cast(mask, dtype=loss_.dtype)
+        if reweight!=None:
+            mask *= reweight
         loss_ *= mask
+
         return tf.reduce_mean(loss_)
     def accuracy_function(real,pred):
         train_accuracy = tf.keras.metrics.sparse_categorical_accuracy(real, pred)
@@ -114,7 +130,10 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
         if mode == tf.estimator.ModeKeys.TRAIN:
             title = features['title']
             title_real = title
+
             mask = create_padding_mask(title_real)
+            reweight = features['reweight']
+
             # context = context[:,:-1]
         else:
             mask = tf.zeros(shape=tf.shape(context))
@@ -128,7 +147,7 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
         if mode == tf.estimator.ModeKeys.TRAIN:
 
 
-            loss = loss_function(title_real,prediction)
+            loss = loss_function(title_real,prediction,reweight)
             learning_rate = CustomSchedule(d_model)(global_step)
             optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
                                                          epsilon=1e-9)
@@ -147,6 +166,9 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
             loss = tf.constant(0)
             train_accuracy = tf.constant(0)
             train_op = tf.no_op()
+            prediction = tf.nn.softmax(prediction,-1)
+            prediction = tf.math.log(prediction)
+
 
         class TransformerRunHook(tf.estimator.SessionRunHook):
             def __init__(self):
@@ -154,7 +176,7 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
                 self.start_time  = time.time()
                 self.ctime = time.time()
             def before_run(self, run_context):
-                return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate,'PRED':prediction})
+                return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate,'PRED':prediction,'attention':attention_w,'source':source,'title':title_real})
 
             def after_run(self, run_context, run_values):
 
@@ -168,7 +190,21 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
                         c_map.setdefault(w,0)
                         c_map[w] += 1
                     return c_map
-
+                def print_attention(title,source,attention):
+                    tok = tokenization(DICT_PATH,100000)
+                    title_list = tok.get_char_list(title[0])
+                    source_list = tok.get_char_list(source[0])
+                    attention = np.log(attention)
+                    attention_list = attention[0]
+                    print(' \t'+'\t'.join(title_list))
+                    for i in range(len(source_list)):
+                        at = []
+                        for j in range(len(title_list)):
+                            at.append(str(attention_list[j][i]))
+                        try:
+                            print(source_list[i]+'\t'+'\t'.join(at))
+                        except:
+                            pass
                 if run_values.results['global_step'] % 20  == 0:
                     ntime = time.time()
                     dtime = ntime - self.ctime
@@ -176,7 +212,7 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
                     print("Batch {0} : loss - {1:.3f} :lr - {5:.2e} : accuracy - {2:.3f} : time_cost - {3:.2f} : all_time_cost - {4:.2f}".format(
                         run_values.results['global_step'],run_values.results['loss'],a,dtime,ntime-self.start_time,run_values.results['learning_rate']))
                     # print(run_values.results['PRED'])
-
+                    # print_attention(run_values.results['title'],run_values.results['source'],run_values.results['attention'])
                 pass
         # summaryHook = tf.estimator.SummarySaverHook(
         #     save_steps=10,
@@ -236,20 +272,20 @@ class ABSBeamSearcher(NewsBeamsearcher):
 def train():
     model_fn = build_model_fn(seq_len=100)
     estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-    input_fn = build_input_fn("NEWS", DATA_PATH,batch_size=32,context_len=10,input_seq_len=1000,output_seq_len=100)
+    input_fn = build_input_fn("NEWSOFF", DATA_PATH,batch_size=32,context_len=10,input_seq_len=1000,output_seq_len=100)
 
     estimator.train(input_fn,max_steps=10000000)
 
 def beamsearch(topk,cnt,name):
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("E_NEWS", DATA_PATH )
+    source_file = queue_reader("E_NEWSOFF", DATA_PATH )
 
     def _g():
         for source in source_file:
             value = source.split('#')
             source  = value[2].split(' ')
             title = value[0].split(' ')
-            print(''.join(source))
+            # print(''.join(source))
             source = tokenizer.padding(tokenizer.tokenize(source),1000)
             title = tokenizer.padding(tokenizer.tokenize(title),100)
             yield  source,title
@@ -260,11 +296,11 @@ def beamsearch(topk,cnt,name):
     predictor = NewsPredictor(estimator,topk)
 
     bs = ABSBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=cnt)
-    bs.set_ctcore(CTcore(VOCAB_SIZE,1.2))
+    bs.set_ctcore(CTcore(VOCAB_SIZE,1))
 
     bs.do_search_mt(100,estimator)
     bs.report(name)
 
 if __name__ == '__main__':
-    train()
-    # beamsearch(5,100,'abs')
+    # train()
+    beamsearch(1,100,'absNobeam')

@@ -83,10 +83,10 @@ class NewsDatasetFromMysql:
             res = get_by_source(source)
             for line in res:
                 ID,title,source,length,content = line
-                # title = jieba.lcut(title)
+                title = jieba.lcut(title)
                 content = jieba.lcut(content)
-                txtrk = textRank_s(' '.join(content))
-                title = txtrk
+                # txtrk = textRank_s(' '.join(content))
+                # title = txtrk
                 if E_c < E_size:
                     rs = random.randint(0,100)
                     if rs <= 3:

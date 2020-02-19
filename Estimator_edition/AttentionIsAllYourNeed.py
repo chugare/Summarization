@@ -9,6 +9,8 @@ from util.file_utils import queue_reader
 from model.transformer import Transformer,create_look_ahead_mask,create_padding_mask
 import time
 from interface.ContextTune import CTcore
+from baseline.Tf_idf import Tf_idf
+
 
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 MODEL_PATH = './transformer'
@@ -23,6 +25,9 @@ DFF=512
 VOCAB_SIZE=100000
 INPUT_LENGTH=1000
 OUTPUT_LENGTH=100
+
+R_TF = 1
+R_IDF = 0.5
 
 
 def create_masks(inp, tar):
@@ -45,6 +50,7 @@ def build_input_fn(name,data_set,batch_size = 32):
 
     def generator():
         tokenizer = tokenization(DICT_PATH,DictSize=100000)
+        idf_core = Tf_idf(DICT_PATH,DATA_PATH+'/NEWS.txt')
         source_file = queue_reader(name,data_set)
         for line in source_file:
             try:
@@ -55,23 +61,33 @@ def build_input_fn(name,data_set,batch_size = 32):
                 title = title.split(' ')
                 content = content.split(' ')
                 source_sequence = tokenizer.tokenize(content)
+
                 source_sequence = tokenizer.padding(source_sequence,1000)
                 title_sequence = tokenizer.tokenize(title)
                 title_sequence = tokenizer.padding(title_sequence,100)
-            # for i,s in enumerate(title_sequence):
-            #     label = s
-            #     context = title_sequence[:i]
-            # #
+
+                title_sequence.insert(0,2)
+
+                # reweight 操作
+
+                re_weight_map = idf_core.reweight_calc(content,R_IDF,R_TF)
+                re_w = [re_weight_map[ti] for ti in title_sequence]
                 feature = {
                     'source':source_sequence,
-                    'context':title_sequence
+                    'context':title_sequence,
+                    'reweight':re_w
                 }
             #     yield feature,label
                 yield feature,0
             except Exception:
                 continue
     def input_fn():
-        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[100]},[]))
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'context':tf.int64,
+                                                                               'reweight':tf.float32
+                                                                               },tf.int64),
+                                            output_shapes=({'source':[INPUT_LENGTH],'context':[OUTPUT_LENGTH+1],
+                                                            'reweight':[OUTPUT_LENGTH+1]
+                                                            },[]))
         ds = ds.shuffle(8192).batch(batch_size).cache().repeat()
         return ds
     return input_fn
@@ -88,11 +104,14 @@ def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
     #
     # loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
     #     from_logits=True, reduction='none')
-    def loss_function(real, pred):
+    def loss_function(real, pred,reweight = None):
+
         mask = tf.math.logical_not(tf.math.equal(real, 0))
         # loss_ = loss_object(real, pred)
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(real, pred)
         mask = tf.cast(mask, dtype=loss_.dtype)
+        if reweight!=None:
+            mask *= reweight
         loss_ *= mask
         return tf.reduce_mean(loss_)
     def accuracy_function(real,pred):
@@ -143,8 +162,11 @@ def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
 
         prediction, atte_weight = transformer(source,tar_inp,training, enc_padding_mask,
               combined_mask, dec_padding_mask)
-
-        loss = loss_function(tar_real,prediction)
+        if training:
+            reweight = features['reweight'][:,1:]
+        else:
+            reweight = None
+        loss = loss_function(tar_real,prediction,reweight)
         learning_rate = CustomSchedule(d_model)(global_step)
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
                                                      epsilon=1e-9)
@@ -211,6 +233,7 @@ def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
         # )
         prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
         prediction = tf.nn.softmax(prediction,-1)
+        prediction = tf.math.log(prediction)
 
         return tf.estimator.EstimatorSpec(mode,{'target':prediction},loss,train_op,training_hooks=[TransformerRunHook()])
 
@@ -282,7 +305,7 @@ def train():
 
 def beamsearch(topk,cnt,name):
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("E_NEWS", DATA_PATH)
+    source_file = queue_reader("NEWSOFF", DATA_PATH)
     def _g():
         for source in source_file:
 
@@ -303,13 +326,11 @@ def beamsearch(topk,cnt,name):
     predictor = NewsPredictor(estimator,topk)
 
     bs = TFMBeam(dataset=g,tokenizer = tokenizer,topk=topk,predictor=predictor,max_count=cnt)
-    bs.set_ctcore(CTcore(VOCAB_SIZE,1.2))
+    bs.set_ctcore(CTcore(VOCAB_SIZE,1.0))
     bs.do_search_mt(100,estimator=estimator)
     bs.report(name)
 
 if __name__ == '__main__':
 
-    train()
-    # beamsearch(5,100,'tfm')
-
-
+    # train()
+    beamsearch(1,100,'tfmNobeam')

@@ -40,6 +40,8 @@ class Tf_idf:
             self.GRAM2N = _data_t['G']
             self.N2GRAM = _data_t['N']
             self.idf = _data_t['I']
+            self.dic_size = len(self.N2GRAM)
+
         except Exception:
             if dic is None or doc_file is None:
                 print('[ERROR] Require data file to initialize')
@@ -47,6 +49,7 @@ class Tf_idf:
             self.tokenizer = tokenization(dic,100000)
             self.GRAM2N = self.tokenizer.GRAM2N
             self.N2GRAM = self.tokenizer.N2GRAM
+            self.dic_size = len(self.GRAM2N)
             grams = self.GRAM2N.keys()
             default_idf = [0.0]*100000
             kvs = zip(grams,default_idf)
@@ -54,6 +57,7 @@ class Tf_idf:
 
             ga = Tf_idf.read_doc_all(doc_file)
             self.idf_calc(ga)
+
             _data_file = open('_tfidf_meta.json','w',encoding='utf-8')
             obj = {
                 'G':self.GRAM2N,
@@ -61,6 +65,9 @@ class Tf_idf:
                 'I':self.idf
             }
             json.dump(obj,_data_file,ensure_ascii=False)
+
+        self.idf_vec = np.array([self.idf.get(self.N2GRAM.get(str(i),''),1) for i in range(self.dic_size)])
+
 
     def idf_calc(self,doc_gen):
         # doc_data = json.load(self.doc_file)
@@ -78,7 +85,10 @@ class Tf_idf:
                 print('[INFO] %d of doc read'%doc_num)
         print('[INFO] All docs have been read')
         for w in self.idf:
-            self.idf[w] = math.log(doc_num/(self.idf[w]+1))
+            try:
+                self.idf[w] = math.log(doc_num/(self.idf[w]+0.1))
+            except:
+                self.idf[w] = 0
         print('[INFO] All idf value have been calculated')
     def tf_calc(self,sen):
         tf = np.zeros(shape=[len(self.N2GRAM)])
@@ -90,6 +100,19 @@ class Tf_idf:
                 tf_idf[self.GRAM2N[word]] = tf[self.GRAM2N[word]]*self.idf[word]/l
 
         return  tf_idf
+    def reweight_calc(self, sen, r_idf, r_tf):
+        tf = np.zeros(shape=[len(self.N2GRAM)])
+        reweight = np.ones(shape=[len(self.N2GRAM)])
+        l = len(sen)
+        for word in sen:
+            if word in self.GRAM2N:
+                tf[self.GRAM2N[word]] = (tf[self.GRAM2N[word]]+1)
+                reweight[self.GRAM2N[word]] = (1 + tf[self.GRAM2N[word]] * r_tf / l)
+
+        reweight = reweight * (1 + r_idf * self.idf_vec)
+
+        return  reweight
+
     @staticmethod
     def read_doc_all(fname):
         file_all = open(fname,'r',encoding='utf-8')

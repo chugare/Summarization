@@ -9,7 +9,9 @@ from model.RNNs2s import RNNS2Smodel,create_padding_mask
 
 import time
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
+from baseline.Tf_idf import Tf_idf
 
+from  interface.RepeatPunish import  doRP_simple
 
 MODEL_PATH = './RNNs2s'
 DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
@@ -22,11 +24,16 @@ DECODER_SIZE = 256
 DECODER_NUM = 3
 VOCAB_SIZE = 100000
 
+R_TF = 1
+R_IDF = 0.5
+
 
 def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_len = 100):
 
     def generator():
         tokenizer = tokenization(DICT_PATH,DictSize=100000)
+        idf_core = Tf_idf(DICT_PATH,DATA_PATH+'/NEWS.txt')
+
         source_file = queue_reader(name,data_set)
         for line in source_file:
             try:
@@ -43,18 +50,25 @@ def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_
                 title_sequence.insert(0,2)
                 # title_context.append([0]*context_le)
                 source_len = len(content)
+
+                re_weight_map = idf_core.reweight_calc(content,R_IDF,R_TF)
+                re_w = [re_weight_map[ti] for ti in title_sequence]
+
+
                 feature = {
                     'source':source_sequence,
                     'last_word': 0,
                     'source_len':source_len,
                     'title':title_sequence,
+                    'reweight':re_w
                 }
                 #     yield feature,label
                 yield feature,0
             except Exception:
                 continue
     def input_fn():
-        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'source_len':tf.int64,'last_word':tf.int64,'title':tf.int64},tf.int64),output_shapes=({'source':[input_seq_len],'source_len':[],'last_word':[],'title':[output_seq_len+1]},[]))
+        ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'source_len':tf.int64,'last_word':tf.int64,'title':tf.int64,'reweight':tf.float32},tf.int64),
+                                            output_shapes=({'source':[input_seq_len],'source_len':[],'last_word':[],'title':[output_seq_len+1],'reweight':[output_seq_len+1]},[]))
         ds = ds.shuffle(8192).batch(batch_size).cache().repeat()
         return ds
     return input_fn
@@ -69,11 +83,14 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
     #
     # loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
     #     from_logits=True, reduction='none')
-    def loss_function(real, pred):
+    def loss_function(real, pred,reweight = None):
+
         mask = tf.math.logical_not(tf.math.equal(real, 0))
         # loss_ = loss_object(real, pred)
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(real, pred)
         mask = tf.cast(mask, dtype=loss_.dtype)
+        if reweight!=None:
+            mask *= reweight
         loss_ *= mask
         return tf.reduce_mean(loss_)
     def accuracy_function(real,pred):
@@ -122,11 +139,11 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             title_real = title[:,1:]
             title_input = title[:,:-1]
             mask = create_padding_mask(title_real)
-
+            reweight = features['reweight'][:,1:]
             prediction, decoder_states,enc_vec = RNNS2S_model(source,source_len,title_input,mode,None,mask = mask)
             prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
 
-            loss = loss_function(title_real,prediction)
+            loss = loss_function(title_real,prediction,reweight)
             learning_rate = CustomSchedule(d_model)(global_step)
             optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
                                                          epsilon=1e-9)
@@ -161,6 +178,9 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             loss = tf.constant(0)
             train_accuracy = tf.constant(0)
             train_op = tf.no_op()
+            prediction = tf.nn.softmax(prediction,-1)
+            prediction = tf.math.log(prediction)
+
 
         class TransformerRunHook(tf.estimator.SessionRunHook):
             def __init__(self):
@@ -282,6 +302,10 @@ class S2SBeamSearcher(NewsBeamsearcher):
                         for i, val in enumerate(buffer):
                             candidate,score = val
                             for n in next_topk[i]:
+
+                                if n==1 and searcher.gen_len<20:
+                                    continue
+
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
                                 # #
@@ -329,9 +353,9 @@ class S2SBeamSearcher(NewsBeamsearcher):
                     res,state = searcher.get_pred_map(res)
                     for i,v in enumerate(res):
                         vmap = v
-                        if rp_core is not  None:
-                            rp_core.do()
-                        sort_res = np.argsort(vmap)[-searcher.topk:]
+                        vmap_w = doRP_simple(100000,0.1,searcher.buffer[i][0],vmap)
+
+                        sort_res = np.argsort(vmap_w)[-searcher.topk:]
                         map_res = {}
                         for k in sort_res:
                             map_res[k] = vmap[k]
@@ -357,19 +381,20 @@ def train():
     model_fn = build_model_fn(lr = 0.01,d_model=D_MODEL,input_vocab_size=VOCAB_SIZE,encoder_size=ENCODE_SIZE,encoder_layer_num=ENCODER_NUM,
                               decoder_size=DECODER_SIZE,decoder_layer_num = DECODER_NUM)
     estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-    input_fn = build_input_fn("NEWS", DATA_PATH,batch_size=16,input_seq_len=1000,output_seq_len=100)
+    input_fn = build_input_fn("NEWSOFF", DATA_PATH,batch_size=16,input_seq_len=1000,output_seq_len=100)
 
     estimator.train(input_fn,max_steps=10000000)
 
 def beamsearch(topk,cnt,name):
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("E_NEWS", DATA_PATH )
+    source_file = queue_reader("NEWSOFF", DATA_PATH )
 
     def _g():
         for source in source_file:
             value = source.split('#')
             source  = value[2].split(' ')
             source_len = len(source)
+            print(''.join(source))
 
             title = value[0].split(' ')
             source = tokenizer.padding(tokenizer.tokenize(source),1000)
@@ -382,10 +407,10 @@ def beamsearch(topk,cnt,name):
     estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
     predictor = NewsPredictor(estimator,topk)
     bs = S2SBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=cnt)
-    bs.do_search_mt(100,estimator)
+    bs.do_search_mt(40,estimator)
     bs.report(name)
 
 if __name__ == '__main__':
 
     # train()
-    beamsearch(1,100,'s2s')
+    beamsearch(5,100,'s2s')

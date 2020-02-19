@@ -46,7 +46,20 @@ if __name__ == '__main__':
     # l = NewsDatasetMysqlWriter(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
     # l.write_mysql()
     # l.build_dataset()
-    source = ['中国新闻网','新华网','光明网','京华时报']
-    # source = ['主流媒体-媒体平台']
+    # source = ['中国新闻网','新华网','光明网','京华时报']
+    source = ['主流媒体-媒体平台']
     nd = NewsDatasetFromMysql(source)
     nd.build()
+    # #
+    # import jieba
+    # rf = open('NEWS_TRK.txt','r',encoding='utf-8')
+    # ttf = open('NEWS_TRKT.txt','w',encoding='utf-8')
+    #
+    # for line in rf:
+    #     # try:
+    #         r = line.split('#')
+    #         if len(r) !=3:
+    #             continue
+    #         tr,s,content = r
+    #         tr = ' '.join(jieba.cut(str(tr).replace(' ','')))
+    #         ttf.write("%s#%s#%s\n"%(tr,s,content))

@@ -29,6 +29,7 @@ class BatchWriter_mysql():
     def write(self, sen):
         if len(self.buffer) >= self.buffer_size:
             self.fp.write('\n'.join(self.buffer))
+            self.fp.write('\n')
             self.buffer = []
             self.count += self.buffer_size
         self.buffer.append(sen)

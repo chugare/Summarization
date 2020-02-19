@@ -143,5 +143,7 @@ if __name__ == '__main__':
     # generate_ALL('../baseline/tfidf.json')
     # generate_ALL('../baseline/textrank.json')
     # generate_ALL('../Estimator_edition/tfm.json')
+    # generate_ALL('../Estimator_edition/tfmNobeam.json')
     # generate_ALL('../Estimator_edition/s2s.json')
-    generate_ALL('../Estimator_edition/abs.json')
+    # generate_ALL('../Estimator_edition/abs.json')
+    # generate_ALL('../Estimator_edition/absNobeam.json')

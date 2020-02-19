@@ -123,8 +123,8 @@ class NewsBeamsearcher(Beamsearcher):
                             opt_w = 0
 
                             for n in next_topk[i]:
-                                if n==1:
-                                    continue
+                                # if n==1 and searcher.gen_len<20:
+                                    # continue
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
                                 # score -= opt_w
@@ -140,7 +140,7 @@ class NewsBeamsearcher(Beamsearcher):
                                     ts = score
                                 else:
                                     tc.append(n)
-                                    ts = score * ts
+                                    ts = score + ts
 
                                 # tc.append(searcher.title_input[searcher.gen_len])
 
@@ -185,10 +185,10 @@ class NewsBeamsearcher(Beamsearcher):
                         #
                         # 重复惩罚
                         vmap_w = vmap
-                        vmap_w = doRP_simple(100000,1,searcher.buffer[i][0],vmap)
+                        # vmap_w = doRP_simple(100000,0.3,searcher.buffer[i][0],vmap)
                         #
                         # 上下文调优
-                        vmap_w = searcher.ctcore.do(vmap_w,searcher.buffer[i][0])
+                        # vmap_w = searcher.ctcore.do(vmap_w,searcher.buffer[i][0])
 
                         sort_res = np.argsort(vmap_w)[-searcher.topk:]
                         map_res = {}
