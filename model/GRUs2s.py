@@ -30,37 +30,50 @@ class Attention(tf.keras.layers.Layer):
         return out
 
 
-class LSTMencoder(tf.keras.layers.Layer):
+class GRUencoder(tf.keras.layers.Layer):
     def __init__(self,d_model, input_vocab_size,size,layer_num):
-        super(LSTMencoder,self).__init__()
-        self.cell = []
+        super(GRUencoder,self).__init__()
+        self.f_cell = []
         for i in range(layer_num):
-            self.cell.append(tf.keras.layers.LSTMCell(units=size,dropout=0.1))
-        self.rnn_layer = tf.keras.layers.RNN(self.cell,return_sequences=True)
+            self.f_cell.append(tf.keras.layers.GRUCell(units=size,dropout=0.1))
+
+        self.f_rnn_layer = tf.keras.layers.RNN(self.f_cell,return_sequences=True,return_state=True)
+
+        self.b_cell = []
+        for i in range(layer_num):
+            self.b_cell.append(tf.keras.layers.GRUCell(units=size,dropout=0.1))
+
+        self.b_rnn_layer = tf.keras.layers.RNN(self.b_cell,return_sequences=True,return_state=True,go_backwards=True)
+
+
+        self.rnn_layer = tf.keras.layers.Bidirectional(self.f_rnn_layer,backward_layer = self.b_rnn_layer)
         self.Embedding = tf.keras.layers.Embedding(input_vocab_size,d_model)
         self.out = tf.keras.layers.Dense(d_model)
 
     def call(self,source,source_len):
         source_emb = self.Embedding(source)
-        output =  self.rnn_layer(source_emb)
-        batch_size = tf.shape(source_len)[0]
-        index = tf.range(0,batch_size,dtype=tf.int64)
-        index = tf.expand_dims(index,-1)
-        source_len = tf.expand_dims(source_len,-1)
-        index = tf.concat([index,source_len],-1)
-        # index = tf.split(index,batch_size)
-        output = tf.gather_nd(output,index)
+        output,state_0,state_1 =  self.rnn_layer(source_emb)
+
+        # batch_size = tf.shape(source_len)[0]
+        # index = tf.range(0,batch_size,dtype=tf.int64)
+        # index = tf.expand_dims(index,-1)
+        # source_len = tf.expand_dims(source_len,-1)
+        # index = tf.concat([index,source_len],-1)
+        # # index = tf.split(index,batch_size)
+        # output = tf.gather_nd(output,index)
+
+        print(output)
 
         return output,source_emb
 
 
-class LSTMdecoder(tf.keras.layers.Layer):
+class GRUdecoder(tf.keras.layers.Layer):
     def __init__(self,d_model, input_vocab_size,size,layer_num):
-        super(LSTMdecoder, self).__init__()
+        super(GRUdecoder, self).__init__()
         self.cell = []
         self.size = size
         for i in range(layer_num):
-            self.cell.append(tf.keras.layers.LSTMCell(units=size,dropout=0.1))
+            self.cell.append(tf.keras.layers.GRUCell(units=size,dropout=0.1))
 
         # self.cell = tf.keras.layers.LSTMCell(units=size,dropout=0.1)
 
@@ -68,7 +81,7 @@ class LSTMdecoder(tf.keras.layers.Layer):
         self.Embedding = tf.keras.layers.Embedding(input_vocab_size,d_model)
         self.d_model = d_model
         self.DecoderInputDense = tf.keras.layers.Dense(d_model)
-        self.attention = Attention(size)
+        self.attention = Attention(size*2)
         pass
     def call(self,enc_vec,init_state,last_word,mode,mask):
 
@@ -76,8 +89,11 @@ class LSTMdecoder(tf.keras.layers.Layer):
         # last_word_embedding = tf.reshape(last_word_embedding,[-1,1,self.d_model])
         # enc_vec = tf.reshape(enc_vec,[-1,1,self.size])
         # enc_vec = tf.math.l2_normalize(enc_vec,-1)
-        decoder_input = self.attention(enc_vec,last_word_embedding,mask)
-        decoder_input = self.DecoderInputDense(decoder_input)
+
+        c = self.attention(enc_vec,last_word_embedding,mask)
+
+
+        decoder_input = self.DecoderInputDense(c)
 
         if mode == 'train':
             res = self.rnn_layer(decoder_input)
@@ -104,9 +120,9 @@ class RNNS2Smodel(tf.keras.Model):
     def __init__(self,d_model, input_vocab_size,encoder_size,encoder_layer_num,decoder_size,decoder_layer_num):
         super(RNNS2Smodel, self).__init__()
 
-        self.encoder = LSTMencoder(d_model=d_model,input_vocab_size=input_vocab_size,size=encoder_size,
+        self.encoder = GRUencoder(d_model=d_model,input_vocab_size=input_vocab_size,size=encoder_size,
                                    layer_num=encoder_layer_num)
-        self.decoder = LSTMdecoder(d_model=d_model,input_vocab_size=input_vocab_size,size=decoder_size,
+        self.decoder = GRUdecoder(d_model=d_model,input_vocab_size=input_vocab_size,size=decoder_size,
                                    layer_num=decoder_layer_num)
         self.final_layer = tf.keras.layers.Dense(input_vocab_size)
         pass

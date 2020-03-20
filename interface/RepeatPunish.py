@@ -39,15 +39,14 @@ def doRP_window(dsize,ratio,windowsize,sentence,new_predict):
     if len(sentence)> windowsize:
         sentence = sentence[-windowsize:]
     for w in sentence:
-        pmap[w] *= ratio
-    new_predict *= pmap
+        pmap[w] += ratio
+    new_predict -= pmap
     return new_predict
 
 def doRP_exp(dsize,ratio,drop_rate,sentence,new_predict):
-    pmap = np.zeros([dsize],np.float32)
     lg = np.zeros([dsize],np.float32)
     for i,w in enumerate(reversed(sentence)):
-        lg[w] += i
-    pmap = ratio * (np.power(drop_rate,lg))
-    new_predict += pmap
+        lg[w] += np.power(drop_rate,i)
+    pmap = ratio * (lg)
+    new_predict -= pmap
     return new_predict

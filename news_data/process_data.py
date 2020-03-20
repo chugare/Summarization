@@ -3,7 +3,7 @@ sys.path.append("/home/user/zsm/Summarization/")
 # from data_util.news_2016.txt_builder import NewsDatasetBuilder
 from data_util.news_2016.mysql_builder import NewsDatasetMysqlWriter
 from data_util.news_2016.txt_builder import NewsDatasetFromMysql
-
+import jieba
 
 def  mk_txt():
     dict_f = open('NEWS_DICT.txt','r',encoding='utf-8')
@@ -38,8 +38,25 @@ def  mk_txt():
             break
 
 
+def mk_txt2():
+    lf = open('lcydata','r',encoding='utf-8')
+    dt = []
+    title = ''
+    # tc = 0
+    # cc = 0
+    for line in lf:
+        if line.startswith('标题'):
+            title = line[3:]
+            twords = jieba.cut(title)
+            title = ' '.join(twords).strip()
 
-
+        if line.startswith('正文'):
+            content = line[3:]
+            cwords = jieba.cut(content)
+            dt.append((title,' '.join(cwords).strip()))
+    of = open('lcynews.txt','w',encoding='utf-8')
+    for d in dt:
+        of.write('%s#%s#%s\n'%(d[0],'q',d[1]))
 
 if __name__ == '__main__':
     # l = NewsDatasetBuilder(open("/home/data/news2016.json",'r',encoding='utf-8'), "NEWS")
@@ -47,10 +64,11 @@ if __name__ == '__main__':
     # l.write_mysql()
     # l.build_dataset()
     # source = ['中国新闻网','新华网','光明网','京华时报']
-    source = ['主流媒体-媒体平台']
-    nd = NewsDatasetFromMysql(source)
-    nd.build()
+    # source = ['主流媒体-媒体平台']
+    # nd = NewsDatasetFromMysql(source)
+    # nd.build()
     # #
+    mk_txt2()
     # import jieba
     # rf = open('NEWS_TRK.txt','r',encoding='utf-8')
     # ttf = open('NEWS_TRKT.txt','w',encoding='utf-8')

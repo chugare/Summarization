@@ -15,13 +15,11 @@ from baseline.Tf_idf import Tf_idf
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 # MODEL_PATH = './transformer'
 # MODEL_PATH = './tfm_new_off'
-MODEL_PATH = './tfm_1layer_rw'
+# MODEL_PATH = './tfm_1layer_rw'
 # MODEL_PATH = './tfm_1layer'
-# MODEL_PATH = './tfm_lcsts'
-# MODEL_PATH = './tfm_lcsts_rw'
+MODEL_PATH = './tfm_reverse'
 DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
-DATA_PATH = '/home/user/zsm/Summarization/news_data'
-# DATA_PATH = '/home/user/zsm/Summarization/ldata'
+DATA_PATH = '/home/user/zsm/Summarization/ldata'
 
 
 NUM_LAYERS=1
@@ -29,13 +27,12 @@ D_MODEL=200
 NUM_HEAD=8
 DFF=512
 VOCAB_SIZE=100000
-INPUT_LENGTH=150
-OUTPUT_LENGTH=40
-BATCH_SIZE = 64
+INPUT_LENGTH=40
+OUTPUT_LENGTH=150
 
 R_TF = 1
 R_IDF = 0.5
-REWEIGHT = True
+
 
 def create_masks(inp, tar):
     # 编码器填充遮挡
@@ -53,7 +50,7 @@ def create_masks(inp, tar):
 
     return enc_padding_mask, combined_mask, dec_padding_mask
 
-def build_input_fn(name,data_set,batch_size = 32):
+def build_input_fn(name,data_set,batch_size = 10):
 
     def generator():
         tokenizer = tokenization(DICT_PATH,DictSize=100000)
@@ -67,10 +64,12 @@ def build_input_fn(name,data_set,batch_size = 32):
                 content = example[2]
                 title = title.split(' ')
                 content = content.split(' ')
-                source_sequence = tokenizer.tokenize(content)
+
+                source_sequence = tokenizer.tokenize(title)
+                title_sequence = tokenizer.tokenize(content)
+
 
                 source_sequence = tokenizer.padding(source_sequence,INPUT_LENGTH)
-                title_sequence = tokenizer.tokenize(title)
                 title_sequence = tokenizer.padding(title_sequence,OUTPUT_LENGTH)
 
                 title_sequence.insert(0,2)
@@ -169,12 +168,11 @@ def build_model_fn(lr ,num_layers,d_model,num_head,dff,input_vocab_size,
 
         prediction, atte_weight = transformer(source,tar_inp,training, enc_padding_mask,
               combined_mask, dec_padding_mask)
-        if training and REWEIGHT:
+        if training:
             reweight = features['reweight'][:,1:]
         else:
             reweight = None
-
-        loss = loss_function(tar_real,prediction,reweight)
+        loss = loss_function(tar_real,prediction)
         learning_rate = CustomSchedule(d_model)(global_step)
         optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
                                                      epsilon=1e-9)
@@ -305,7 +303,7 @@ def train():
                               target_vocab_size=VOCAB_SIZE,
                               pe_input=INPUT_LENGTH,pe_target=OUTPUT_LENGTH)
     estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-    input_fn = build_input_fn("NEWSOFF",DATA_PATH,batch_size=BATCH_SIZE)
+    input_fn = build_input_fn("short_lcsts",DATA_PATH)
 
     estimator.train(input_fn,max_steps=10000000)
 
@@ -313,14 +311,14 @@ def train():
 
 def beamsearch(topk,cnt,name,rp_fun = 'n'):
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("e_lcsts", DATA_PATH)
+    source_file = queue_reader("short_lcsts", DATA_PATH)
     def _g():
         for source in source_file:
 
             value = source.split('#')
-            source = value[2].split(' ')
+            source = value[0].split(' ')
             # print(''.join(source))
-            title = value[0].split(' ')
+            title = value[2].split(' ')
             source = tokenizer.padding(tokenizer.tokenize(source),INPUT_LENGTH)
             title = tokenizer.padding(tokenizer.tokenize(title),OUTPUT_LENGTH)
             yield  source,title
@@ -342,10 +340,12 @@ if __name__ == '__main__':
 
 
     train()
-
     # reslog = open('reslog.txt','w',encoding='utf-8')
     #
     # for i in range(20):
     #     beamsearch(i+1,100,'tfmnrw1layerbeam%d'%i,'n')
 
-    # beamsearch(5,100,'tfmlcstsrw')
+    # beamsearch(5,100,'tfmrevbeam','n')
+    # beamsearch(5,100,'tfmrevbeamSrp','s')
+    # beamsearch(5,100,'tfmrevbeamWrp','w')
+    # beamsearch(5,100,'tfmrevbeamErp','e')

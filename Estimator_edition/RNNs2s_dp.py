@@ -5,7 +5,7 @@ import tensorflow as tf
 import numpy as np
 from data_util.tokenization import tokenization
 from util.file_utils import queue_reader
-from model.RNNs2s import RNNS2Smodel,create_padding_mask
+from model.RNNw2sdp import RNNS2Smodel,create_padding_mask
 
 import time
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
@@ -15,66 +15,68 @@ from  interface.RepeatPunish import  *
 
 # MODEL_PATH = './RNNs2s'
 # MODEL_PATH = './rnns2s1l'
-# MODEL_PATH = './rnns2s1lnrw'
-MODEL_PATH = './rnns2slcsts'
-DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
-# DATA_PATH = '/home/user/zsm/Summarization/news_data'
-DATA_PATH = '/home/user/zsm/Summarization/ldata'
+MODEL_PATH = './rnnw2snoend'
+DICT_PATH = '/root/zsm/Summarization/data/DP_DICT.txt'
+DATA_PATH = '/home/user/zsm/Summarization/data'
 
 D_MODEL = 200
 ENCODE_SIZE = 256
-ENCODER_NUM = 1
-DECODER_SIZE = 256
+ENCODER_NUM = 2
+DECODER_SIZE = 400
 DECODER_NUM = 1
 VOCAB_SIZE = 100000
-INPUT_LENGTH=150
-OUTPUT_LENGTH=40
-BATCH_SIZE = 64
 
 R_TF = 1
-R_IDF = 0.5
+R_IDF = 1
 
-PLUS_RATIO= 1
-# PLUS_RATIO= 0
+# PLUS_RATIO= 0.5
+PLUS_RATIO= 0
+RPRATE = 1
 
-def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_len = 100):
+KEYWORDNUM = 5
+
+OUT_SEQ_LEN = 150
+
+def build_input_fn(name,data_set,batch_size = 1,input_seq_len = KEYWORDNUM,output_seq_len = OUT_SEQ_LEN):
 
     def generator():
         tokenizer = tokenization(DICT_PATH,DictSize=100000)
-        idf_core = Tf_idf(DICT_PATH,DATA_PATH+'/NEWS.txt')
+        idf_core = Tf_idf(DICT_PATH,DATA_PATH+'/DP.txt')
 
         source_file = queue_reader(name,data_set)
         for line in source_file:
             try:
-                example = line.split('#')
-                title = example[0]
-                desc = example[1]
-                content = example[2]
-                title = title.split(' ')
-                content = content.split(' ')
-                source_sequence = tokenizer.tokenize(content)
-                source_sequence = tokenizer.padding(source_sequence,input_seq_len)
-                title_sequence = tokenizer.tokenize(title)
-                title_sequence = tokenizer.padding(title_sequence,output_seq_len)
-                title_sequence.insert(0,2)
-                # title_context.append([0]*context_le)
-                source_len = len(content)
+                source = line.strip().split(' ')
+                source_sequence = tokenizer.tokenize(source)
+
+                source_sequence = tokenizer.padding(source_sequence,output_seq_len)
+
+                tfvec = idf_core.tf_calc(source)
+                if len(tfvec)<KEYWORDNUM:
+                    print(tfvec)
+                    print(line)
+                    print('')
+                    res = []
+                else:
+                    res = idf_core.get_top_word(tfvec,KEYWORDNUM)
+
+                content = tokenizer.padding(res,KEYWORDNUM)
+                source_sequence.insert(0,2)
 
                 re_weight_map = idf_core.reweight_calc(content,R_IDF,R_TF)
-                re_w = [re_weight_map[ti] for ti in title_sequence]
-
+                re_w = [re_weight_map[ti] for ti in source_sequence]
 
                 feature = {
-                    'source':source_sequence,
+                    'source':content,
                     'last_word': 0,
-                    'source_len':source_len,
-                    'title':title_sequence,
+                    'source_len':0,
+                    'title':source_sequence,
                     'reweight':re_w
                 }
                 #     yield feature,label
                 yield feature,0
-            except Exception:
-                continue
+            except Exception as e:
+                raise e
     def input_fn():
         ds = tf.data.Dataset.from_generator(generator=generator,output_types=({'source':tf.int64,'source_len':tf.int64,'last_word':tf.int64,'title':tf.int64,'reweight':tf.float32},tf.int64),
                                             output_shapes=({'source':[input_seq_len],'source_len':[],'last_word':[],'title':[output_seq_len+1],'reweight':[output_seq_len+1]},[]))
@@ -221,8 +223,9 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
                     self.ctime = ntime
                     print("Batch {0} : loss - {1:.3f} :lr - {5:.2e} : accuracy - {2:.3f} : TCPB - {3:.2f} : TTC - {4:.2f} h".format(
                         run_values.results['global_step'],run_values.results['loss'],a,dtime,(ntime-self.start_time)/3600,run_values.results['learning_rate']))
-                    # print(run_values.results['PRED'])
-
+                    pred = np.argmax(run_values.results['PRED'],-1)
+                    s = statis(pred)
+                    a = s
                 pass
 
 
@@ -248,16 +251,19 @@ class S2SBeamSearcher(NewsBeamsearcher):
         def data_generator():
             searcher = self
             while len(searcher.gen_result) < searcher.max_count:
+                # print('s--%d'%len(searcher.buffer))
+
                 state = searcher.state.get()
                 # state_t = np.transpose(state,[1,0,2])
                 # buffer_lock.wait(2)
                 for i in range(searcher.topk):
                     lastword = searcher.buffer[i][0][-1] if searcher.buffer[i][0] else 2
+
                     yield {'source':searcher.source_input,'source_len':searcher.source_len,'state':state[i],'last_word':lastword}, tf.constant(0)
 
         def input_fn():
             return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'source_len':tf.int64,'last_word':tf.int64,'state':tf.float32},tf.int64),
-                                                  output_shapes=({'source':[INPUT_LENGTH],'source_len':[],'last_word':[],'state':[DECODER_NUM*2,DECODER_SIZE]},[])).batch(self.topk,drop_remainder=True)
+                                                  output_shapes=({'source':[KEYWORDNUM],'source_len':[],'last_word':[],'state':[DECODER_NUM*2,DECODER_SIZE]},[])).batch(self.topk,drop_remainder=True)
         return input_fn
 
     def do_search_mt(self,max_step,estimator,rp_fun = 'n'):
@@ -289,13 +295,17 @@ class S2SBeamSearcher(NewsBeamsearcher):
                     for i in range(searcher.topk):
                         searcher.buffer.append(([],0))
                     searcher.gen_len = 0
-                    searcher.next_topk.empty()
-                    searcher.state.empty()
+
+                    if not searcher.state.empty():
+                        searcher.state.get()
+                    if not searcher.next_topk.empty():
+                        searcher.next_topk.get()
+
                     state = tf.zeros([searcher.topk,DECODER_NUM*2,DECODER_SIZE],np.float32)
                 else:
-
                     tmp_buffer = []
                     buffer = searcher.buffer
+
                     next_topk , state = searcher.next_topk.get()
                     if searcher.gen_len == 0:
                         candidate,score = buffer[0]
@@ -316,8 +326,8 @@ class S2SBeamSearcher(NewsBeamsearcher):
                             opt_w = 0
 
                             for n in next_topk[i]:
-                                # if n==1 and searcher.gen_len<20:
-                                    # continue
+                                if searcher.topk != 1 and n==1 and searcher.gen_len<20:
+                                    continue
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
                                 # # 无自动截断版本
@@ -332,7 +342,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                                 else:
                                     tc.append(n)
                                     ts = score + ts
-                                score_opt = ts + opt_w
+                                score_opt = ts - opt_w
                                 opt_w += PLUS_RATIO
                                 # tc.append(searcher.title_input[searcher.gen_len])
 
@@ -352,7 +362,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                     c = np.sum([1 if len(l[0])>0 and l[0][-1] == 1 else 0 for l in searcher.buffer])
                 else:
                     c = 0
-                if c == searcher.topk:
+                if c >= searcher.topk:
                     # 用于判定是否是第一次的生成，因为后续的生成都是 c * c 的数量
                     searcher.gen_len = max_step
                 else:
@@ -368,15 +378,16 @@ class S2SBeamSearcher(NewsBeamsearcher):
             while len(searcher.gen_result) < searcher.max_count:
                 try:
                     res_v = []
+
                     res = next(pred)
                     res,state = searcher.get_pred_map(res)
                     for i,v in enumerate(res):
                         vmap = v
 
                         if rp_fun == 's':
-                            vmap_w = doRP_simple(100000,0.3,searcher.buffer[i][0],vmap)
+                            vmap_w = doRP_simple(100000,RPRATE,searcher.buffer[i][0],vmap)
                         elif rp_fun == 'w':
-                            vmap_w = doRP_window(100000,0.3,10,searcher.buffer[i][0],vmap)
+                            vmap_w = doRP_window(100000,RPRATE,10,searcher.buffer[i][0],vmap)
                         elif rp_fun == 'e':
                             vmap_w = doRP_exp(100000,0.3,0.8,searcher.buffer[i][0],vmap)
                         else:
@@ -410,25 +421,37 @@ def train():
     model_fn = build_model_fn(lr = 0.01,d_model=D_MODEL,input_vocab_size=VOCAB_SIZE,encoder_size=ENCODE_SIZE,encoder_layer_num=ENCODER_NUM,
                               decoder_size=DECODER_SIZE,decoder_layer_num = DECODER_NUM)
     estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-    input_fn = build_input_fn("lcsts", DATA_PATH,batch_size=16,input_seq_len=INPUT_LENGTH,output_seq_len=OUTPUT_LENGTH)
+    input_fn = build_input_fn("DP50.txt", DATA_PATH,batch_size=32,input_seq_len=KEYWORDNUM,output_seq_len=OUT_SEQ_LEN)
 
     estimator.train(input_fn,max_steps=10000000)
 
 def beamsearch(topk,cnt,name,rp_fun = 'n'):
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("paperDoc", DATA_PATH )
+    source_file = queue_reader("DPR.txt", DATA_PATH )
+    idf_core = Tf_idf(DICT_PATH,DATA_PATH+'/DP.txt')
 
     def _g():
-        for source in source_file:
-            value = source.split('#')
-            source  = value[2].split(' ')
-            source_len = len(source)
-            # print(''.join(source))
+        count = 0
+        for line in source_file:
+            source = line.strip().split(' ')
+            source_sequence = tokenizer.tokenize(source)
+            source_sequence = tokenizer.padding(source_sequence,OUT_SEQ_LEN)
+            count += 1
+            if count < 5:
+                continue
 
-            title = value[0].split(' ')
-            source = tokenizer.padding(tokenizer.tokenize(source),INPUT_LENGTH)
-            title = tokenizer.padding(tokenizer.tokenize(title),OUTPUT_LENGTH)
-            yield  source,source_len,title
+            tfvec = idf_core.tf_calc(source)
+            if len(tfvec)<KEYWORDNUM:
+                print(tfvec)
+                print(line)
+                print('')
+                res = []
+            else:
+                res = idf_core.get_top_word(tfvec,KEYWORDNUM)
+                # res = [source_sequence[i] for i in res]
+            content = tokenizer.padding(res,KEYWORDNUM)
+            # print(''.join(source))
+            yield  content,0,source_sequence
     g = _g()
 
     model_fn = build_model_fn(lr = 0.1,d_model=D_MODEL,input_vocab_size=VOCAB_SIZE,encoder_size=ENCODE_SIZE,encoder_layer_num=ENCODER_NUM,
@@ -441,12 +464,55 @@ def beamsearch(topk,cnt,name,rp_fun = 'n'):
 
 if __name__ == '__main__':
 
-    train()
-    # beamsearch(5,2,'lstmlcsts','n')
-    # beamsearch(5,100,'lstmnr1layerbeamplus','n')
-    # beamsearch(1,100,'lstmnr1layerNobeamSrp','s')
+    # train()
+    beamsearch(1,100,'rnnw2snobeam','n')
     # beamsearch(5,100,'lstmnr1layerbeamSrp','s')
     # beamsearch(1,100,'lstmnr1layerNobeamWrp','w')
     # beamsearch(5,100,'lstmnr1layerbeamWrp','w')
     # beamsearch(1,100,'lstmnr1layerNobeamErp','e')
     # beamsearch(5,100,'lstmnr1layerbeamErp','e')
+
+    # def tet(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_len = 100):
+    #
+    #     def generator():
+    #         tokenizer = tokenization(DICT_PATH,DictSize=100000)
+    #         idf_core = Tf_idf(DICT_PATH,DATA_PATH+'/DP.txt')
+    #
+    #         source_file = queue_reader(name,data_set)
+    #         for line in source_file:
+    #             try:
+    #                 source = line.strip().split(' ')
+    #                 source_sequence = tokenizer.tokenize(source)
+    #
+    #                 source_sequence = tokenizer.padding(source_sequence,output_seq_len)
+    #
+    #                 tfvec = idf_core.tf_calc(line)
+    #                 if len(tfvec)<KEYWORDNUM:
+    #                     print(tfvec)
+    #                     print(line)
+    #                     print('')
+    #                     res = []
+    #                 else:
+    #                     res = idf_core.get_top_word(tfvec,KEYWORDNUM)
+    #
+    #                 content = tokenizer.padding(res,KEYWORDNUM)
+    #
+    #                 re_weight_map = idf_core.reweight_calc(content,R_IDF,R_TF)
+    #                 re_w = [re_weight_map[ti] for ti in content]
+    #
+    #
+    #                 feature = {
+    #                     'source':content,
+    #                     'last_word': 0,
+    #                     'source_len':0,
+    #                     'title':source_sequence,
+    #                     'reweight':re_w
+    #                 }
+    #                 #     yield feature,label
+    #                 yield feature,0
+    #             except Exception as e:
+    #                 raise e
+    #     return generator()
+    # g = tet("DP.txt", DATA_PATH,batch_size=16,input_seq_len=KEYWORDNUM,output_seq_len=OUT_SEQ_LEN)
+    # for i in g:
+    #     print(i)

@@ -1,11 +1,14 @@
 import numpy as np
 from interface.BeamSearch import *
-from  interface.RepeatPunish import  doRP_simple
+from  interface.RepeatPunish import  *
 from interface.ContextTune import CTcore
 import tensorflow as tf
 import json
 import os,time,sys
 
+
+# PLUS_RATIO= 5
+PLUS_RATIO= 0
 
 class NewsPredictor(Predictor):
     def __init__(self,estimator,topk = None):
@@ -68,11 +71,13 @@ class NewsBeamsearcher(Beamsearcher):
         with open(fname,'w',encoding='utf-8') as jsfile:
             json.dump(data,jsfile,ensure_ascii=False)
 
+        from  evaluate.metrics import generate_ALL
+
+        generate_ALL("../Estimator_edition/%s"%fname)
 
 
 
-
-    def do_search_mt(self,max_step,estimator,rp_core = None):
+    def do_search_mt(self,max_step,estimator,rp_fun = 'n'):
         # buffer_lock = threading.RLock()
         # # result_lock = threading.RLock()
         # buffer_lock = threading.Condition(1)
@@ -82,8 +87,8 @@ class NewsBeamsearcher(Beamsearcher):
             while len(searcher.gen_result) < searcher.max_count:
 
                 if len(searcher.buffer) == 0 or searcher.gen_len >= max_step:
-                    if searcher.gen_len == max_step:
-                        searcher.gen_result.append((searcher.buffer[-1][0],searcher.title_input,searcher.source_input))
+                    if searcher.gen_len >= max_step:
+                        searcher.gen_result.append((searcher.buffer[0][0],searcher.title_input,searcher.source_input))
 
                         print('第{0}步生成的内容：'.format(len(searcher.gen_result)))
                         print(searcher.tokenizer.get_sentence(searcher.buffer[-1][0]))
@@ -96,8 +101,10 @@ class NewsBeamsearcher(Beamsearcher):
                     for i in range(searcher.topk):
                         searcher.buffer.append(([],0))
                     searcher.gen_len = 0
-                    searcher.next_topk.empty()
-                    searcher.context.empty()
+                    if not searcher.next_topk.empty():
+                        searcher.next_topk.pop()
+                    if not searcher.context.empty():
+                        searcher.context.pop()
                     searcher.ctcore.init(source)
                 else:
 
@@ -114,7 +121,8 @@ class NewsBeamsearcher(Beamsearcher):
                                 tc.append(searcher.source_input[0])
                             else:
                                 tc.append(n)
-                            tmp_buffer.append((tc,score+ts))
+                            tmp_buffer.append((tc,score+ts,i*PLUS_RATIO))
+                            # nexttopk是升序的，最后面的权重最高
 
                     else:
                         for i, val in enumerate(buffer):
@@ -123,12 +131,10 @@ class NewsBeamsearcher(Beamsearcher):
                             opt_w = 0
 
                             for n in next_topk[i]:
-                                # if n==1 and searcher.gen_len<20:
-                                    # continue
+                                if searcher.topk!= 1 and n==1 and searcher.gen_len<10:
+                                    continue
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
-                                # score -= opt_w
-                                # opt_w += 0.2
                                 # # 无自动截断版本
                                 #
                                 # tc.append(n)
@@ -141,14 +147,23 @@ class NewsBeamsearcher(Beamsearcher):
                                 else:
                                     tc.append(n)
                                     ts = score + ts
-
+                                score_opt = ts + opt_w
+                                opt_w += PLUS_RATIO
                                 # tc.append(searcher.title_input[searcher.gen_len])
 
-                                tmp_buffer.append((tc,ts))
+                                tmp_buffer.append((tc,ts,score_opt))
 
-                    tmp_buffer = sorted(tmp_buffer,key=lambda x:x[1])
+                    # tmp_buffer = sorted(tmp_buffer,key=lambda x:x[1])
+                    tmp_buffer = sorted(tmp_buffer,key=lambda x:x[2])
                     tmp_buffer = tmp_buffer[-searcher.topk:]
-                    searcher.buffer = tmp_buffer
+                    tmp_buffer.reverse()
+                    # res = []
+                    # for t in tmp_buffer:
+                    #
+                    #     s = searcher.tokenizer.get_sentence(t[0])
+                    #     res.append(s)
+                    # print(' & '.join(res)+'\\\\')
+                    searcher.buffer = [(i[0],i[1]) for i in tmp_buffer]
                     searcher.gen_len += 1
                 #
                 # if searcher.gen_len>0:
@@ -184,8 +199,14 @@ class NewsBeamsearcher(Beamsearcher):
                         # 需要重复惩罚或者上下文调优的时候
                         #
                         # 重复惩罚
-                        vmap_w = vmap
-                        # vmap_w = doRP_simple(100000,0.3,searcher.buffer[i][0],vmap)
+                        if rp_fun == 's':
+                            vmap_w = doRP_simple(100000,0.3,searcher.buffer[i][0],vmap)
+                        elif rp_fun == 'w':
+                            vmap_w = doRP_window(100000,0.3,10,searcher.buffer[i][0],vmap)
+                        elif rp_fun == 'e':
+                            vmap_w = doRP_exp(100000,0.3,0.8,searcher.buffer[i][0],vmap)
+                        else:
+                            vmap_w = vmap
                         #
                         # 上下文调优
                         # vmap_w = searcher.ctcore.do(vmap_w,searcher.buffer[i][0])

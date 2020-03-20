@@ -112,7 +112,9 @@ class Tf_idf:
         reweight = reweight * (1 + r_idf * self.idf_vec)
 
         return  reweight
-
+    def get_top_word(self,tfvec,num):
+        ind = np.argsort(tfvec)
+        return ind[-num:]
     @staticmethod
     def read_doc_all(fname):
         file_all = open(fname,'r',encoding='utf-8')

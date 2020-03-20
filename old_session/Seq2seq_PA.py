@@ -554,3 +554,6 @@ class Main:
 
             json.dump(weightMap,weightfile,ensure_ascii=False)
             json.dump(generateResult,resFile,ensure_ascii=False)
+
+
+if __name__ == '__main__':

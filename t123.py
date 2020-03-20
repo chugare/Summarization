@@ -17,12 +17,20 @@
 # print(initstate)
 # r = layer(inp,initial_state=ist)
 # print(r)
+#
+# import numpy as np
+#
+# a = np.ones([100])*2
+# b = np.ones([100])*2
+# print(a*b)
 
-import numpy as np
+import  queue
 
-a = np.ones([100])*2
-b = np.ones([100])*2
-print(a*b)
+q = queue.Queue()
+q.put(100)
+
+print(q.empty())
+print(q)
 
 #
 # a = tf.range(100)

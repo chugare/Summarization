@@ -10,14 +10,22 @@ import time,threading,queue
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 from interface.ContextTune import CTcore
 from baseline.Tf_idf import Tf_idf
-MODEL_PATH = './ABS'
+# MODEL_PATH = './ABS'
+MODEL_PATH = './ABS_lcsts_rw'
+# MODEL_PATH = './ABS_rew_newoff'
+
 DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
-DATA_PATH = '/home/user/zsm/Summarization/news_data'
+# DATA_PATH = '/home/user/zsm/Summarization/news_data'
+DATA_PATH = '/home/user/zsm/Summarization/ldata'
 
 VOCAB_SIZE = 100000
+INPUT_LENGTH=150
+OUTPUT_LENGTH=40
 
 R_TF = 1
 R_IDF = 0.5
+REWEIGHT = True
+
 
 def build_input_fn(name,data_set,batch_size = 1,context_len = 10,input_seq_len = 1000,output_seq_len = 100):
 
@@ -81,7 +89,7 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
     #
     # loss_object = tf.keras.losses.SparseCategoricalCrossentropy(
     #     from_logits=True, reduction='none')
-    def loss_function(real, pred,reweight):
+    def loss_function(real, pred,reweight=None):
         mask = tf.math.logical_not(tf.math.equal(real, 0))
         # loss_ = loss_object(real, pred)
         loss_ = tf.nn.sparse_softmax_cross_entropy_with_logits(real, pred)
@@ -132,8 +140,8 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
             title_real = title
 
             mask = create_padding_mask(title_real)
-            reweight = features['reweight']
 
+            reweight = features['reweight']
             # context = context[:,:-1]
         else:
             mask = tf.zeros(shape=tf.shape(context))
@@ -146,7 +154,8 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
 
         if mode == tf.estimator.ModeKeys.TRAIN:
 
-
+            if not REWEIGHT:
+                reweight = None
             loss = loss_function(title_real,prediction,reweight)
             learning_rate = CustomSchedule(d_model)(global_step)
             optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate,beta1=0.9, beta2=0.98,
@@ -176,7 +185,9 @@ def build_model_fn(lr = 0.01,seq_len=100,context_len = 10,d_model=200,input_voca
                 self.start_time  = time.time()
                 self.ctime = time.time()
             def before_run(self, run_context):
-                return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate,'PRED':prediction,'attention':attention_w,'source':source,'title':title_real})
+                return tf.estimator.SessionRunArgs({'loss':loss,'accuracy':train_accuracy,'global_step':global_step,'learning_rate':learning_rate,'PRED':prediction,
+                                                    # 'attention':attention_w,'source':source,'title':title_real
+                                                    })
 
             def after_run(self, run_context, run_values):
 
@@ -262,7 +273,7 @@ class ABSBeamSearcher(NewsBeamsearcher):
                     yield {'source':searcher.source_input,'context':c}, tf.constant(0)
 
         def input_fn():
-            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[1000],'context':[1,10]},[])).batch(self.topk)
+            return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'context':tf.int64},tf.int64),output_shapes=({'source':[INPUT_LENGTH],'context':[1,10]},[])).batch(self.topk)
         return input_fn
 
 
@@ -272,13 +283,14 @@ class ABSBeamSearcher(NewsBeamsearcher):
 def train():
     model_fn = build_model_fn(seq_len=100)
     estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-    input_fn = build_input_fn("NEWSOFF", DATA_PATH,batch_size=32,context_len=10,input_seq_len=1000,output_seq_len=100)
+    input_fn = build_input_fn("lcsts", DATA_PATH,batch_size=32,context_len=10,input_seq_len=1000,output_seq_len=100)
 
     estimator.train(input_fn,max_steps=10000000)
 
 def beamsearch(topk,cnt,name):
+    print(name)
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("E_NEWSOFF", DATA_PATH )
+    source_file = queue_reader("e_lcsts", DATA_PATH )
 
     def _g():
         for source in source_file:
@@ -286,8 +298,8 @@ def beamsearch(topk,cnt,name):
             source  = value[2].split(' ')
             title = value[0].split(' ')
             # print(''.join(source))
-            source = tokenizer.padding(tokenizer.tokenize(source),1000)
-            title = tokenizer.padding(tokenizer.tokenize(title),100)
+            source = tokenizer.padding(tokenizer.tokenize(source),INPUT_LENGTH)
+            title = tokenizer.padding(tokenizer.tokenize(title),OUTPUT_LENGTH)
             yield  source,title
     g = _g()
 
@@ -302,5 +314,9 @@ def beamsearch(topk,cnt,name):
     bs.report(name)
 
 if __name__ == '__main__':
-    # train()
-    beamsearch(1,100,'absNobeam')
+    train()
+    # beamsearch(5,100,'absbeamplus')
+    # beamsearch(5,100,'abslcsts')
+    # beamsearch(1,100,'absNrwNobeamErp')
+    # beamsearch(1,100,'absRwNobeamErp')
+    # beamsearch(1,100,'absNrwNobeamSrp')

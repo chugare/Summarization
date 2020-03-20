@@ -5,7 +5,7 @@ import tensorflow as tf
 import numpy as np
 from data_util.tokenization import tokenization
 from util.file_utils import queue_reader
-from model.RNNs2s import RNNS2Smodel,create_padding_mask
+from model.GRUs2s import RNNS2Smodel,create_padding_mask
 
 import time
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
@@ -13,13 +13,12 @@ from baseline.Tf_idf import Tf_idf
 
 from  interface.RepeatPunish import  *
 
-# MODEL_PATH = './RNNs2s'
-# MODEL_PATH = './rnns2s1l'
-# MODEL_PATH = './rnns2s1lnrw'
-MODEL_PATH = './rnns2slcsts'
+# MODEL_PATH = './GRUs2s'
+MODEL_PATH = './GRUs2s_attention'
+# MODEL_PATH = './GRUbilayers2s'
+
 DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
-# DATA_PATH = '/home/user/zsm/Summarization/news_data'
-DATA_PATH = '/home/user/zsm/Summarization/ldata'
+DATA_PATH = '/home/user/zsm/Summarization/news_data'
 
 D_MODEL = 200
 ENCODE_SIZE = 256
@@ -27,15 +26,12 @@ ENCODER_NUM = 1
 DECODER_SIZE = 256
 DECODER_NUM = 1
 VOCAB_SIZE = 100000
-INPUT_LENGTH=150
-OUTPUT_LENGTH=40
-BATCH_SIZE = 64
 
 R_TF = 1
 R_IDF = 0.5
 
-PLUS_RATIO= 1
-# PLUS_RATIO= 0
+PLUS_RATIO = 0
+
 
 def build_input_fn(name,data_set,batch_size = 1,input_seq_len = 1000,output_seq_len = 100):
 
@@ -148,7 +144,7 @@ def build_model_fn(lr,d_model, input_vocab_size,encoder_size,encoder_layer_num,d
             title_real = title[:,1:]
             title_input = title[:,:-1]
             mask = create_padding_mask(title_real)
-            reweight = features['reweight'][:,1:]
+            # reweight = features['reweight'][:,1:]
             prediction, decoder_states,enc_vec = RNNS2S_model(source,source_len,title_input,mode,None,mask = mask)
             prediction = prediction - tf.expand_dims(tf.reduce_max(prediction,-1),-1)
 
@@ -257,11 +253,9 @@ class S2SBeamSearcher(NewsBeamsearcher):
 
         def input_fn():
             return tf.data.Dataset.from_generator(generator=data_generator,output_types=({'source':tf.int64,'source_len':tf.int64,'last_word':tf.int64,'state':tf.float32},tf.int64),
-                                                  output_shapes=({'source':[INPUT_LENGTH],'source_len':[],'last_word':[],'state':[DECODER_NUM*2,DECODER_SIZE]},[])).batch(self.topk,drop_remainder=True)
+                                                  output_shapes=({'source':[1000],'source_len':[],'last_word':[],'state':[DECODER_NUM*2,DECODER_SIZE]},[])).batch(self.topk,drop_remainder=True)
         return input_fn
-
-    def do_search_mt(self,max_step,estimator,rp_fun = 'n'):
-
+    def do_search_mt(self,max_step,estimator,rp_core = None):
         # buffer_lock = threading.RLock()
         # # result_lock = threading.RLock()
         # buffer_lock = threading.Condition(1)
@@ -277,7 +271,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                         searcher.gen_result.append((searcher.buffer[-1][0],searcher.title_input,searcher.source_input))
 
                         print('第{0}步生成的内容：'.format(len(searcher.gen_result)))
-                        print('源：{}'.format(searcher.tokenizer.get_sentence(searcher.source_input)))
+                        # print('源：{}'.format(searcher.tokenizer.get_sentence(searcher.source_input)))
                         print(searcher.tokenizer.get_sentence(searcher.buffer[-1][0]))
                     source,source_len,title = next(searcher.dataset)
                     searcher.source_input = source[:]
@@ -317,7 +311,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
 
                             for n in next_topk[i]:
                                 # if n==1 and searcher.gen_len<20:
-                                    # continue
+                                # continue
                                 ts = next_topk[i][n]
                                 tc = candidate[:]
                                 # # 无自动截断版本
@@ -332,7 +326,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                                 else:
                                     tc.append(n)
                                     ts = score + ts
-                                score_opt = ts + opt_w
+                                score_opt = ts - opt_w
                                 opt_w += PLUS_RATIO
                                 # tc.append(searcher.title_input[searcher.gen_len])
 
@@ -344,7 +338,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                     searcher.buffer = [(i[0],i[1]) for i in tmp_buffer]
                     searcher.gen_len += 1
                     state = [i[3] for i in tmp_buffer]
-            #
+                #
                 # if searcher.gen_len>0:
                 #     print('第{0}步生成的内容：'.format(searcher.gen_len))
 
@@ -372,18 +366,10 @@ class S2SBeamSearcher(NewsBeamsearcher):
                     res,state = searcher.get_pred_map(res)
                     for i,v in enumerate(res):
                         vmap = v
-
-                        if rp_fun == 's':
-                            vmap_w = doRP_simple(100000,0.3,searcher.buffer[i][0],vmap)
-                        elif rp_fun == 'w':
-                            vmap_w = doRP_window(100000,0.3,10,searcher.buffer[i][0],vmap)
-                        elif rp_fun == 'e':
-                            vmap_w = doRP_exp(100000,0.3,0.8,searcher.buffer[i][0],vmap)
-                        else:
-                            vmap_w = vmap
-
-
-
+                        vmap_w = doRP_simple(100000,0.3,searcher.buffer[i][0],vmap)
+                        # vmap_w = doRP_window(100000,0.3,10,searcher.buffer[i][0],vmap)
+                        # vmap_w = doRP_exp(100000,0.3,0.8,searcher.buffer[i][0],vmap)
+                        #
                         sort_res = np.argsort(vmap_w)[-searcher.topk:]
                         map_res = {}
                         for k in sort_res:
@@ -410,24 +396,24 @@ def train():
     model_fn = build_model_fn(lr = 0.01,d_model=D_MODEL,input_vocab_size=VOCAB_SIZE,encoder_size=ENCODE_SIZE,encoder_layer_num=ENCODER_NUM,
                               decoder_size=DECODER_SIZE,decoder_layer_num = DECODER_NUM)
     estimator = tf.estimator.Estimator(model_fn,model_dir=MODEL_PATH,)
-    input_fn = build_input_fn("lcsts", DATA_PATH,batch_size=16,input_seq_len=INPUT_LENGTH,output_seq_len=OUTPUT_LENGTH)
+    input_fn = build_input_fn("NEWSOFF", DATA_PATH,batch_size=16,input_seq_len=1000,output_seq_len=100)
 
     estimator.train(input_fn,max_steps=10000000)
 
-def beamsearch(topk,cnt,name,rp_fun = 'n'):
+def beamsearch(topk,cnt,name):
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("paperDoc", DATA_PATH )
+    source_file = queue_reader("NEWSOFF", DATA_PATH )
 
     def _g():
         for source in source_file:
             value = source.split('#')
             source  = value[2].split(' ')
             source_len = len(source)
-            # print(''.join(source))
+            print(''.join(source))
 
             title = value[0].split(' ')
-            source = tokenizer.padding(tokenizer.tokenize(source),INPUT_LENGTH)
-            title = tokenizer.padding(tokenizer.tokenize(title),OUTPUT_LENGTH)
+            source = tokenizer.padding(tokenizer.tokenize(source),1000)
+            title = tokenizer.padding(tokenizer.tokenize(title),100)
             yield  source,source_len,title
     g = _g()
 
@@ -436,17 +422,10 @@ def beamsearch(topk,cnt,name,rp_fun = 'n'):
     estimator = tf.estimator.Estimator(model_fn, model_dir=MODEL_PATH, )
     predictor = NewsPredictor(estimator,topk)
     bs = S2SBeamSearcher(dataset=g,tokenizer = tokenizer,topk=topk,context_len=10,predictor=predictor,max_count=cnt)
-    bs.do_search_mt(40,estimator,rp_fun=rp_fun)
+    bs.do_search_mt(40,estimator)
     bs.report(name)
 
 if __name__ == '__main__':
 
     train()
-    # beamsearch(5,2,'lstmlcsts','n')
-    # beamsearch(5,100,'lstmnr1layerbeamplus','n')
-    # beamsearch(1,100,'lstmnr1layerNobeamSrp','s')
-    # beamsearch(5,100,'lstmnr1layerbeamSrp','s')
-    # beamsearch(1,100,'lstmnr1layerNobeamWrp','w')
-    # beamsearch(5,100,'lstmnr1layerbeamWrp','w')
-    # beamsearch(1,100,'lstmnr1layerNobeamErp','e')
-    # beamsearch(5,100,'lstmnr1layerbeamErp','e')
+    # beamsearch(5,100,'grubibeam')
