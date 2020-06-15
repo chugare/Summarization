@@ -1,22 +1,20 @@
 
-source = """
-样例1	rw值	样例2	rw值	样例3	rw值
-醉酒	4.46 	沪	3.14 	最高	5.99 
-男子	5.48 	指	3.59 	法	3.89 
-砸烂	6.32 	高	3.89 	：	2.97 
-ATM	5.78 	开	2.85 	尊重	6.32 
-机	2.25 	0	2.89 	和	2.52 
-屏幕	5.18 	.	2.06 	保障	6.52 
-ATM	5.78 	1	1.51 	律师	4.97 
-:	2.14 	6	1.71 	依法	6.75 
-为什么	6.58 	%	3.32 	履职	6.03 
-又	5.54 	个股	6.00 	[pad]	0
-是	2.28 	止跌	6.86 	[pad]	0
-我	4.66 	反弹	6.62 	[pad]	0
+source = """LSTM	0.128 	0.026 	0.085 	0.109 	14.180 	1.931 
+LSTM Srp	0.242 	0.036 	0.142 	0.127 	31.370 	2.334 
+LSTM Wrp	0.236 	0.032 	0.136 	0.124 	30.830 	2.344 
+LSTM Erp	0.220 	0.033 	0.134 	0.134 	27.040 	2.095 
+
  """
+
 
 for line in source.split('\n'):
     nums = line.split('\t')
     if len(nums)<1:
         continue
-    print(' & '.join(nums)+'\\\\')
+    print('\t'.join(nums))
+
+# for line in source.split('\n'):
+#     nums = line.split('\t')
+#     if len(nums)<1:
+#         continue
+#     print(' & '.join(nums)+'\\\\')

@@ -31,7 +31,7 @@ R_IDF = 1
 
 # PLUS_RATIO= 0.5
 PLUS_RATIO= 0
-RPRATE = 1
+RPRATE = 4
 
 KEYWORDNUM = 5
 
@@ -56,12 +56,12 @@ def build_input_fn(name,data_set,batch_size = 1,input_seq_len = KEYWORDNUM,outpu
                     print(tfvec)
                     print(line)
                     print('')
-                    res = []
+                    continue
                 else:
                     res = idf_core.get_top_word(tfvec,KEYWORDNUM)
 
                 content = tokenizer.padding(res,KEYWORDNUM)
-                source_sequence.insert(0,2)
+                source_sequence.insert(0,res[0])
 
                 re_weight_map = idf_core.reweight_calc(content,R_IDF,R_TF)
                 re_w = [re_weight_map[ti] for ti in source_sequence]
@@ -257,7 +257,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                 # state_t = np.transpose(state,[1,0,2])
                 # buffer_lock.wait(2)
                 for i in range(searcher.topk):
-                    lastword = searcher.buffer[i][0][-1] if searcher.buffer[i][0] else 2
+                    lastword = searcher.buffer[i][0][-1] if searcher.buffer[i][0] else searcher.title_input[0]
 
                     yield {'source':searcher.source_input,'source_len':searcher.source_len,'state':state[i],'last_word':lastword}, tf.constant(0)
 
@@ -389,7 +389,7 @@ class S2SBeamSearcher(NewsBeamsearcher):
                         elif rp_fun == 'w':
                             vmap_w = doRP_window(100000,RPRATE,10,searcher.buffer[i][0],vmap)
                         elif rp_fun == 'e':
-                            vmap_w = doRP_exp(100000,0.3,0.8,searcher.buffer[i][0],vmap)
+                            vmap_w = doRP_exp(100000,5,0.9,searcher.buffer[i][0],vmap)
                         else:
                             vmap_w = vmap
 
@@ -427,7 +427,7 @@ def train():
 
 def beamsearch(topk,cnt,name,rp_fun = 'n'):
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("DPR.txt", DATA_PATH )
+    source_file = queue_reader("DP50.txt", DATA_PATH )
     idf_core = Tf_idf(DICT_PATH,DATA_PATH+'/DP.txt')
 
     def _g():
@@ -465,7 +465,7 @@ def beamsearch(topk,cnt,name,rp_fun = 'n'):
 if __name__ == '__main__':
 
     # train()
-    beamsearch(1,100,'rnnw2snobeam','n')
+    beamsearch(1,100,'rnnw2snobeam','e')
     # beamsearch(5,100,'lstmnr1layerbeamSrp','s')
     # beamsearch(1,100,'lstmnr1layerNobeamWrp','w')
     # beamsearch(5,100,'lstmnr1layerbeamWrp','w')

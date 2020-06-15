@@ -7,7 +7,7 @@ import json
 import os,time,sys
 
 
-# PLUS_RATIO= 5
+# PLUS_RATIO= 3
 PLUS_RATIO= 0
 
 class NewsPredictor(Predictor):
@@ -157,12 +157,12 @@ class NewsBeamsearcher(Beamsearcher):
                     tmp_buffer = sorted(tmp_buffer,key=lambda x:x[2])
                     tmp_buffer = tmp_buffer[-searcher.topk:]
                     tmp_buffer.reverse()
-                    # res = []
-                    # for t in tmp_buffer:
-                    #
-                    #     s = searcher.tokenizer.get_sentence(t[0])
-                    #     res.append(s)
-                    # print(' & '.join(res)+'\\\\')
+                    res = []
+                    for t in tmp_buffer:
+
+                        s = searcher.tokenizer.get_sentence(t[0])
+                        res.append(s)
+                    print(' & '.join(res)+'\\\\')
                     searcher.buffer = [(i[0],i[1]) for i in tmp_buffer]
                     searcher.gen_len += 1
                 #

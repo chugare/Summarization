@@ -15,8 +15,8 @@ from baseline.Tf_idf import Tf_idf
 from interface.NewsInterface import NewsBeamsearcher,NewsPredictor
 # MODEL_PATH = './transformer'
 # MODEL_PATH = './tfm_new_off'
-MODEL_PATH = './tfm_1layer_rw'
-# MODEL_PATH = './tfm_1layer'
+# MODEL_PATH = './tfm_1layer_rw'
+MODEL_PATH = './tfm_1layer'
 # MODEL_PATH = './tfm_lcsts'
 # MODEL_PATH = './tfm_lcsts_rw'
 DICT_PATH = '/root/zsm/Summarization/news_data_r/NEWS_DICT_R.txt'
@@ -313,7 +313,7 @@ def train():
 
 def beamsearch(topk,cnt,name,rp_fun = 'n'):
     tokenizer = tokenization(DICT_PATH,DictSize=100000)
-    source_file = queue_reader("e_lcsts", DATA_PATH)
+    source_file = queue_reader("E_NEWS", DATA_PATH)
     def _g():
         for source in source_file:
 
@@ -341,11 +341,11 @@ def beamsearch(topk,cnt,name,rp_fun = 'n'):
 if __name__ == '__main__':
 
 
-    train()
+    # train()
 
     # reslog = open('reslog.txt','w',encoding='utf-8')
     #
     # for i in range(20):
     #     beamsearch(i+1,100,'tfmnrw1layerbeam%d'%i,'n')
 
-    # beamsearch(5,100,'tfmlcstsrw')
+    beamsearch(5,100,'tfmbeam+')
